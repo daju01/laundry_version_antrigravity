@@ -1,0 +1,6 @@
+{
+  "name": "Laundry Cockpit",
+  "description": "Simulator usaha dan business cockpit untuk pemilik usaha laundry kiloan",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
