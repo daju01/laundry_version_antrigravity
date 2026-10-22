@@ -67,7 +67,7 @@ fun AttentionAlertCard(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = WarningYellowBg),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(16.dp),
         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(WarningYellowBorder)),
         modifier = modifier
             .fillMaxWidth()
@@ -87,7 +87,7 @@ fun AttentionAlertCard(
                 Icon(
                     imageVector = Icons.Default.WarningAmber,
                     contentDescription = "Perhatian",
-                    tint = WarningYellow,
+                    tint = SunnyAmberDark,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -97,7 +97,7 @@ fun AttentionAlertCard(
                     text = "PERLU PERHATIAN",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFFB45309),
+                        color = SunnyAmberDark,
                         letterSpacing = 0.8.sp
                     )
                 )
@@ -121,9 +121,9 @@ fun DecisionRecommendationCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = modifier
             .fillMaxWidth()
             .testTag("decision_card")
@@ -138,9 +138,9 @@ fun DecisionRecommendationCard(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "KEPUTUSAN HARI INI",
+                    text = "REKOMENDASI KEPUTUSAN HARI INI",
                     style = MaterialTheme.typography.titleSmall.copy(
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.ExtraBold,
                         color = Slate900,
                         letterSpacing = 0.5.sp
                     )
@@ -156,16 +156,16 @@ fun DecisionRecommendationCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(20.dp)
+                            .size(22.dp)
                             .clip(CircleShape)
-                            .background(OceanBluePrimary.copy(alpha = 0.12f)),
+                            .background(SkyTintBg),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "${index + 1}",
                             style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = OceanBluePrimary,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = OceanBlueDeep,
                                 fontSize = 11.sp
                             )
                         )
@@ -193,9 +193,9 @@ fun TargetVsActualCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = modifier
             .fillMaxWidth()
             .testTag("target_vs_actual_card")
@@ -207,10 +207,10 @@ fun TargetVsActualCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "TARGET VS AKTUAL",
+                    text = "TARGET VS AKTUAL HARI INI",
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = Slate500,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = OceanBlueDeep,
                         letterSpacing = 0.5.sp
                     )
                 )
@@ -218,7 +218,7 @@ fun TargetVsActualCard(
                     text = "${progressPercent.toInt()}%",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (progressPercent >= 100) SuccessGreen else OceanBluePrimary
+                        color = if (progressPercent >= 100) MintEmeraldDark else OceanBluePrimary
                     )
                 )
             }
@@ -231,8 +231,8 @@ fun TargetVsActualCard(
                     .fillMaxWidth()
                     .height(8.dp)
                     .clip(RoundedCornerShape(4.dp)),
-                color = if (progressPercent >= 100) SuccessGreen else OceanBluePrimary,
-                trackColor = Slate100
+                color = if (progressPercent >= 100) MintEmerald else OceanBluePrimary,
+                trackColor = SkyTintBg
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -263,7 +263,7 @@ fun TargetVsActualCard(
                         text = "${actualKg.toInt()} kg/hari",
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
-                            color = if (actualKg >= targetKg) SuccessGreen else Slate900
+                            color = if (actualKg >= targetKg) MintEmeraldDark else Slate900
                         )
                     )
                 }
@@ -282,9 +282,9 @@ fun CockpitMetricBox(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(12.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize()
@@ -298,18 +298,26 @@ fun CockpitMetricBox(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        color = Slate500,
-                        fontWeight = FontWeight.SemiBold
+                        color = Slate600,
+                        fontWeight = FontWeight.Bold
                     ),
                     maxLines = 1
                 )
                 if (icon != null) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = null,
-                        tint = OceanBluePrimary,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(SkyTintBg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = OceanBluePrimary,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))

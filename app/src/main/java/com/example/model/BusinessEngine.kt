@@ -86,7 +86,7 @@ object BusinessEngine {
 
         // Revenue today
         val revenueToday = activeOrders.sumOf { it.totalPrice }
-        
+
         // Cost today = Daily pure fixed cost + (Variable cost per kg * kgMasuk)
         val dailyFixedCost = config.totalPureFixedCostMonthly / 30.0
         val dailyVariableCost = config.variableCostPerKg * kgMasuk
@@ -123,14 +123,16 @@ object BusinessEngine {
 
         healthIndicators.add(HealthIndicator("CASHFLOW AMAN", HealthStatus.GREEN, "Kas: ${formatRupiahCompact(config.initialCash)}"))
 
+        val pipeline = computePipeline(state)
+
         // Attention Message
         val attentionMessage = when {
             capacityUtilization >= 90.0 ->
                 "Mesin & operasional hampir mencapai kapasitas maksimum (${capacityUtilization.roundToInt()}%). Jangan menerima order express berlebihan hari ini."
             kgBelumSelesai > 35.0 ->
-                "Jika order bertambah 25 kg hari ini, penyelesaian berpotensi terlambat akibat antrian setrika."
+                "Jika order bertambah 25 kg hari ini, penyelesaian berpotensi terlambat akibat antrian di tahap ${pipeline.bottleneck.stage.lowercase()}."
             profitToday < 0 ->
-                "Omzet hari ini belum mencapai titik BEP harian. Perlu minimal ${formatKg(computeBEP(config).gapKgPerDay * -1)} lagi."
+                "Omzet hari ini belum mencapai titik BEP harian. Perlu minimal ${formatKg(computeBEP(config, kgMasuk).gapKgPerDay * -1)} lagi."
             else ->
                 "Operasi hari ini berjalan sangat optimal. Margin laba tercatat ${marginPercent.roundToInt()}% dengan cashflow stabil."
         }
@@ -138,7 +140,7 @@ object BusinessEngine {
         // 3 Decisions of the Day
         val decisions = mutableListOf<String>()
         if (kgBelumSelesai > 30.0) {
-            decisions.add("Prioritaskan ${kgBelumSelesai.roundToInt()} kg laundry yang menumpuk di stasiun setrika & packing.")
+            decisions.add("Prioritaskan ${kgBelumSelesai.roundToInt()} kg laundry yang menumpuk di stasiun ${pipeline.bottleneck.stage.lowercase()} & packing.")
         } else {
             decisions.add("Jaga kecepatan pengerjaan order reguler agar siap sebelum jam 17:00.")
         }
@@ -146,10 +148,10 @@ object BusinessEngine {
         if (capacityUtilization > 85.0) {
             decisions.add("Batasi penerimaan order Express tambahan hari ini (maks 15 kg).")
         } else {
-            decisions.add("Kapasitas masih longgar (${(100 - capacityUtilization).roundToInt()}% sisa), tawarkan promo express kepada pelanggan setia.")
+            decisions.add("Kapasitas masih longgar (${(100 - capacityUtilization).coerceAtLeast(0.0).roundToInt()}% sisa), tawarkan promo express kepada pelanggan setia.")
         }
 
-        decisions.add("Tidak perlu menambah mesin cuci; fokus perkuat produktivitas meja setrika.")
+        decisions.add(pipeline.bottleneck.recommendation)
 
         val target = config.targetKgPerDay
         val progress = if (target > 0) ((kgMasuk / target) * 100.0).coerceIn(0.0, 150.0) else 0.0
@@ -175,6 +177,7 @@ object BusinessEngine {
 
     fun computePipeline(state: CockpitUiState): PipelineSummary {
         val orders = state.orders
+        val config = state.config
         val masukKg = orders.filter { it.status == OrderStatus.MASUK }.sumOf { it.weightKg }
         val cuciKg = orders.filter { it.status == OrderStatus.CUCI }.sumOf { it.weightKg }
         val keringKg = orders.filter { it.status == OrderStatus.KERING }.sumOf { it.weightKg }
@@ -182,22 +185,48 @@ object BusinessEngine {
         val packingKg = orders.filter { it.status == OrderStatus.PACKING }.sumOf { it.weightKg }
         val selesaiKg = orders.filter { it.status == OrderStatus.SELESAI }.sumOf { it.weightKg }
 
-        // Analyze Bottleneck
-        // Effective setrika capacity: Assume 1-2 staff assigned to iron, yielding ~60 - 80 kg/day
-        val setrikaCapacityKg = (state.config.ironCount * state.config.ironCapacityPerUnitPerHourKg * 4.0 * state.config.operatingEfficiency).coerceAtLeast(60.0)
-        val setrikaLoadKg = setrikaKg + keringKg * 0.8 // incoming load
+        // Dynamic multi-stage bottleneck evaluation
+        val setrikaCapacityKg = (config.ironCount * config.ironCapacityPerUnitPerHourKg * 4.0 * config.safeEfficiency).coerceAtLeast(60.0)
+        val setrikaLoadKg = setrikaKg + keringKg * 0.8
         val setrikaUtil = (setrikaLoadKg / setrikaCapacityKg) * 100.0
-        val setrikaBacklog = max(0.0, setrikaLoadKg - setrikaCapacityKg)
 
-        val bottleneck = BottleneckAnalysis(
-            stage = "SETRIKA",
-            reason = "Kapasitas meja setrika terbatas (${setrikaCapacityKg.roundToInt()} kg/hari), sedangkan beban antrian mencapai ${setrikaLoadKg.roundToInt()} kg.",
-            capacityKg = setrikaCapacityKg,
-            currentLoadKg = setrikaLoadKg,
-            utilizationPercent = setrikaUtil,
-            estimatedBacklogKg = setrikaBacklog,
-            recommendation = "Alihkan 1 staf cuci/packing untuk membantu proses setrika uap, atau atur antrian express lebih dulu."
-        )
+        val cuciCapacityKg = config.washingPracticalCapacityKg.coerceAtLeast(40.0)
+        val cuciLoadKg = cuciKg + masukKg * 0.6
+        val cuciUtil = (cuciLoadKg / cuciCapacityKg) * 100.0
+
+        val keringCapacityKg = if (config.dryerCount > 0) config.dryerPracticalCapacityKg.coerceAtLeast(40.0) else 60.0
+        val keringLoadKg = keringKg + cuciKg * 0.7
+        val keringUtil = (keringLoadKg / keringCapacityKg) * 100.0
+
+        val bottleneck = when {
+            cuciUtil > setrikaUtil && cuciUtil > keringUtil && cuciUtil > 50.0 -> BottleneckAnalysis(
+                stage = "CUCI",
+                reason = "Kapasitas mesin cuci (${cuciCapacityKg.roundToInt()} kg/hari) tertekan oleh beban antrian ${cuciLoadKg.roundToInt()} kg.",
+                capacityKg = cuciCapacityKg,
+                currentLoadKg = cuciLoadKg,
+                utilizationPercent = cuciUtil,
+                estimatedBacklogKg = max(0.0, cuciLoadKg - cuciCapacityKg),
+                recommendation = "Optimalkan jadwal putaran mesin cuci atau tambah 1 unit mesin cuci komersial."
+            )
+            keringUtil > setrikaUtil && keringUtil > 50.0 -> BottleneckAnalysis(
+                stage = "KERING",
+                reason = "Kapasitas pengering (${keringCapacityKg.roundToInt()} kg/hari) padat dengan beban antrian ${keringLoadKg.roundToInt()} kg.",
+                capacityKg = keringCapacityKg,
+                currentLoadKg = keringLoadKg,
+                utilizationPercent = keringUtil,
+                estimatedBacklogKg = max(0.0, keringLoadKg - keringCapacityKg),
+                recommendation = "Prioritaskan pengeringan order express di dryer gas dan pisahkan kain tebal."
+            )
+            else -> BottleneckAnalysis(
+                stage = "SETRIKA",
+                reason = "Kapasitas meja setrika terbatas (${setrikaCapacityKg.roundToInt()} kg/hari), sedangkan beban antrian mencapai ${setrikaLoadKg.roundToInt()} kg.",
+                capacityKg = setrikaCapacityKg,
+                currentLoadKg = setrikaLoadKg,
+                utilizationPercent = setrikaUtil,
+                estimatedBacklogKg = max(0.0, setrikaLoadKg - setrikaCapacityKg),
+                recommendation = "Alihkan 1 staf cuci/packing untuk membantu proses setrika uap, atau atur antrian express lebih dulu."
+            )
+        }
 
         return PipelineSummary(
             masukKg = masukKg,
@@ -261,14 +290,19 @@ object BusinessEngine {
 
         val baseConfig = state.config
 
-        // Dynamic practical capacity with slider values
-        val washCycles = (baseConfig.operatingHoursPerDay * 60.0) / baseConfig.washingCycleDurationMinutes
-        val washCap = washCount * baseConfig.washingCapacityPerMachineKg * washCycles * baseConfig.operatingEfficiency
+        // Dynamic practical capacity with slider values (guarded against zero division)
+        val washCycles = (baseConfig.safeOperatingHours * 60.0) / baseConfig.washingCycleDurationMinutes.coerceAtLeast(1.0)
+        val washCap = washCount * baseConfig.washingCapacityPerMachineKg * washCycles * baseConfig.safeEfficiency
 
-        val dryCycles = (baseConfig.operatingHoursPerDay * 60.0) / baseConfig.dryerCycleDurationMinutes
-        val dryCap = dryCount * baseConfig.dryerCapacityPerMachineKg * dryCycles * baseConfig.operatingEfficiency
+        val dryCycles = (baseConfig.safeOperatingHours * 60.0) / baseConfig.dryerCycleDurationMinutes.coerceAtLeast(1.0)
+        val dryCap = if (dryCount > 0) {
+            dryCount * baseConfig.dryerCapacityPerMachineKg * dryCycles * baseConfig.safeEfficiency
+        } else {
+            // Outdoor drying fallback when 0 dryers selected
+            60.0 * baseConfig.safeEfficiency
+        }
 
-        val ironCap = (staffCount * 0.4).coerceAtLeast(1.0) * baseConfig.ironCapacityPerUnitPerHourKg * baseConfig.operatingHoursPerDay * baseConfig.operatingEfficiency
+        val ironCap = (staffCount * 0.4).coerceAtLeast(1.0) * baseConfig.ironCapacityPerUnitPerHourKg * baseConfig.safeOperatingHours * baseConfig.safeEfficiency
         val practicalMaxCapacityKg = minOf(washCap, dryCap, ironCap)
 
         val dailyRevenue = kgDay * priceKg
@@ -315,8 +349,8 @@ object BusinessEngine {
 
     fun computeMachineInvestment(config: BusinessConfig, input: MachineInvestmentInput): MachineInvestmentResult {
         // Extra capacity per day
-        val cycles = (config.operatingHoursPerDay * 60.0) / input.cycleMinutes
-        val extraPracticalDailyKg = input.capacityKg * cycles * config.operatingEfficiency
+        val cycles = (config.safeOperatingHours * 60.0) / input.cycleMinutes.coerceAtLeast(1.0)
+        val extraPracticalDailyKg = input.capacityKg.coerceAtLeast(1.0) * cycles * config.safeEfficiency
 
         // Potential extra revenue assuming 50% extra capacity utilized
         val utilizedKg = extraPracticalDailyKg * 0.5
@@ -357,11 +391,14 @@ object BusinessEngine {
             Pair("12 Bulan (1 Tahun)", 365)
         )
 
+        val dailyRev = config.targetKgPerDay * config.regularPricePerKg
+        val dailyExp = (config.totalPureFixedCostMonthly / 30.0) + (config.variableCostPerKg * config.targetKgPerDay)
+        val effectiveDailyNet = if (dailyProfit != 0.0) dailyProfit else (dailyRev - dailyExp)
+
         return periods.map { (label, days) ->
-            val rev = (config.targetKgPerDay * config.regularPricePerKg) * days
-            val dailyExp = (config.totalPureFixedCostMonthly / 30.0) + (config.variableCostPerKg * config.targetKgPerDay)
+            val rev = dailyRev * days
             val exp = dailyExp * days
-            val net = rev - exp
+            val net = effectiveDailyNet * days
             val endCash = currentCash + net
 
             CashflowForecastItem(
@@ -376,7 +413,7 @@ object BusinessEngine {
     }
 
     fun computeCustomerEconomics(ordersCount: Int, regularPrice: Double): CustomerEconomics {
-        val activeCust = 142
+        val activeCust = (118 + ordersCount).coerceAtLeast(1)
         val avgKg = 5.6
         val avgTrx = avgKg * regularPrice
         val freq = 2.8 // times a month

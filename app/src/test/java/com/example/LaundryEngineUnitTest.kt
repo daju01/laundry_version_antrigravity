@@ -3,9 +3,13 @@ package com.example
 import com.example.data.SampleData
 import com.example.model.BusinessConfig
 import com.example.model.BusinessEngine
-import com.example.model.MachineInvestmentInput
+import com.example.model.LaundryOrder
+import com.example.model.OrderStatus
+import com.example.model.ServiceType
 import com.example.sim.*
 import com.example.viewmodel.CockpitUiState
+import com.example.viewmodel.GameCockpitViewModel
+import com.example.viewmodel.LaundryCockpitViewModel
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -53,10 +57,15 @@ class LaundryEngineUnitTest {
     @Test
     fun testLabModeCloneIsolation() {
         val engine = SimulationEngine()
+        engine.revenueCollectedToday = 125_000.0
+        engine.completedKgToday = 11.5
         val lab = engine.cloneForLab()
 
         assertTrue(lab.isLabMode)
         assertEquals(engine.cash, lab.cash, 0.01)
+        assertEquals(125_000.0, lab.revenueCollectedToday, 0.01)
+        assertEquals(11.5, lab.completedKgToday, 0.01)
+        assertEquals(engine.activeQuests.size, lab.activeQuests.size)
 
         // Modify lab with enough cash
         lab.cash = 20_000_000.0
@@ -116,6 +125,22 @@ class LaundryEngineUnitTest {
     }
 
     @Test
+    fun testDynamicWashBottleneckDetection() {
+        val tightWashConfig = SampleData.defaultBusinessConfig.copy(
+            washingMachineCount = 1,
+            washingCapacityPerMachineKg = 5.0,
+            washingCycleDurationMinutes = 60.0
+        )
+        val heavyWashOrders = listOf(
+            LaundryOrder("ORD-W1", "Pelanggan A", weightKg = 45.0, pricePerKg = 9_000.0, status = OrderStatus.CUCI),
+            LaundryOrder("ORD-W2", "Pelanggan B", weightKg = 30.0, pricePerKg = 9_000.0, status = OrderStatus.MASUK)
+        )
+        val state = CockpitUiState(config = tightWashConfig, orders = heavyWashOrders)
+        val pipeline = BusinessEngine.computePipeline(state)
+        assertEquals("CUCI", pipeline.bottleneck.stage)
+    }
+
+    @Test
     fun testTaskCompletionFeedbackAndCombo() {
         val engine = SimulationEngine()
         assertEquals(0, engine.taskComboCount)
@@ -163,6 +188,29 @@ class LaundryEngineUnitTest {
     }
 
     @Test
+    fun testMultiLevelXpJump() {
+        val engine = SimulationEngine()
+        // Add 1000 XP at once -> should jump from Level 1 directly to Level 4 (OUTLET_BERTUMBUH, 1000 XP)
+        engine.addXp(1000)
+        assertEquals(4, engine.tycoonLevel)
+        assertEquals(GrowthTier.OUTLET_BERTUMBUH, engine.growthTier)
+        assertEquals(120.0, engine.maxDailyIntakeKgQuota, 0.01)
+    }
+
+    @Test
+    fun testBoosterExpenseAccounting() {
+        val engine = SimulationEngine()
+        val initialExpenses = engine.operationalExpensesToday
+        val coffeeOk = engine.giveCoffeeBoost()
+        assertTrue(coffeeOk)
+        assertEquals(initialExpenses + 25_000.0, engine.operationalExpensesToday, 0.01)
+
+        val promoOk = engine.triggerPromoFlyer()
+        assertTrue(promoOk)
+        assertEquals(initialExpenses + 65_000.0, engine.operationalExpensesToday, 0.01)
+    }
+
+    @Test
     fun testEfficiencyStreakOnDayClose() {
         val engine = SimulationEngine()
         engine.completedOrdersCountToday = 3
@@ -177,5 +225,22 @@ class LaundryEngineUnitTest {
         assertTrue(engine.currentStreak >= 2)
         assertTrue(report.streakBonusCash > 0)
         assertTrue(engine.cash > initialCash - 150_000.0) // Gained bonus cash
+    }
+
+    @Test
+    fun testErpSyncFromSimulation() {
+        val gameVm = GameCockpitViewModel()
+        val erpVm = LaundryCockpitViewModel()
+
+        val initialRev = gameVm.uiState.value.stateRevision
+        gameVm.triggerTestLevelUp()
+        assertTrue(gameVm.uiState.value.stateRevision > initialRev)
+
+        val syncedConfig = gameVm.toBusinessConfig()
+        val syncedOrders = gameVm.toBusinessOrders()
+        erpVm.syncFromSimulation(syncedConfig, syncedOrders)
+
+        assertEquals(syncedConfig.businessName, erpVm.uiState.value.config.businessName)
+        assertEquals(syncedOrders.size, erpVm.uiState.value.orders.size)
     }
 }

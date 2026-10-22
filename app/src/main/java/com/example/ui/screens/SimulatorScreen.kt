@@ -1,14 +1,10 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -18,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -65,21 +62,21 @@ fun SimulatorScreen(
         BusinessEngine.computeMachineInvestment(state.config, state.machineInvestmentInput)
     }
 
-    var selectedTab by remember { mutableIntStateOf(0) } // 0: What-If & Skenario, 1: Investasi Mesin, 2: Target Profit & Pricing
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(AppCanvasBg)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(top = 12.dp, bottom = 96.dp)
     ) {
-        // Header
         Text(
             text = "BUSINESS SIMULATOR",
             style = MaterialTheme.typography.labelSmall.copy(
                 fontWeight = FontWeight.ExtraBold,
-                color = OceanBluePrimary,
+                color = BerryLavender,
                 letterSpacing = 1.sp
             )
         )
@@ -93,27 +90,27 @@ fun SimulatorScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Tabs
         TabRow(
             selectedTabIndex = selectedTab,
-            containerColor = Color.Transparent,
-            contentColor = OceanBluePrimary,
+            containerColor = Color.White,
+            contentColor = BerryLavender,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)),
             divider = {}
         ) {
             Tab(
                 selected = selectedTab == 0,
                 onClick = { selectedTab = 0 },
-                text = { Text("What-If Slider", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                text = { Text("What-If Slider", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp) }
             )
             Tab(
                 selected = selectedTab == 1,
                 onClick = { selectedTab = 1 },
-                text = { Text("Beli Mesin?", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                text = { Text("Beli Mesin?", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp) }
             )
             Tab(
                 selected = selectedTab == 2,
                 onClick = { selectedTab = 2 },
-                text = { Text("Target & Harga", fontWeight = FontWeight.Bold, fontSize = 12.sp) }
+                text = { Text("Target & Harga", fontWeight = FontWeight.ExtraBold, fontSize = 12.sp) }
             )
         }
 
@@ -162,7 +159,6 @@ fun WhatIfTabContent(
     onUpdateSalary: (Double) -> Unit,
     onApplyScenario: (ScenarioPreset) -> Unit
 ) {
-    // SCENARIO PRESET BUTTONS (Horizontal Chips)
     Text(
         text = "SKENARIO CEPAT",
         style = MaterialTheme.typography.labelSmall.copy(
@@ -182,21 +178,20 @@ fun WhatIfTabContent(
             FilterChip(
                 selected = isSelected,
                 onClick = { onApplyScenario(preset) },
-                label = { Text(preset.label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal) },
+                label = { Text(preset.label, fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium) },
                 colors = FilterChipDefaults.filterChipColors(
-                    selectedContainerColor = OceanBluePrimary,
+                    selectedContainerColor = BerryLavender,
                     selectedLabelColor = Color.White
                 )
             )
         }
     }
 
-    // Impact Banner if Scenario Applied
     if (state.scenarioImpactText != null) {
         Spacer(modifier = Modifier.height(10.dp))
         Card(
             colors = CardDefaults.cardColors(containerColor = InfoBlueBg),
-            shape = RoundedCornerShape(10.dp),
+            shape = RoundedCornerShape(12.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(InfoBlueBorder)),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -220,12 +215,14 @@ fun WhatIfTabContent(
 
     Spacer(modifier = Modifier.height(14.dp))
 
-    // LIVE RESULT COCKPIT CARD (Sticky Summary feel)
+    // LIVE RESULT COCKPIT CARD (Vibrant Ocean-to-Teal Gradient Card)
     Card(
-        colors = CardDefaults.cardColors(containerColor = Slate900),
-        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        shape = RoundedCornerShape(18.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(Brush.horizontalGradient(listOf(OceanBlueDark, OceanBluePrimary, TealAccent)))
             .testTag("simulator_live_card")
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -235,19 +232,18 @@ fun WhatIfTabContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "HASIL PROYEKSI LIVE",
+                    text = "✨ HASIL PROYEKSI LIVE",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = CyanGlow,
+                        color = Color(0xFFFEF08A),
                         letterSpacing = 1.sp
                     )
                 )
 
-                // Overcapacity / Safe Pill
                 Box(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (simResult.isOverCapacity) DangerRed else SuccessGreen)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (simResult.isOverCapacity) CoralRose else Color.White.copy(alpha = 0.22f))
                         .padding(horizontal = 8.dp, vertical = 3.dp)
                 ) {
                     Text(
@@ -268,31 +264,31 @@ fun WhatIfTabContent(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
-                    Text(text = "Omzet / Bulan", style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 11.sp))
+                    Text(text = "Omzet / Bulan", style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp))
                     Text(
                         text = formatRupiahCompact(simResult.monthlyRevenue),
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Black,
                             color = Color.White,
-                            fontSize = 20.sp
+                            fontSize = 21.sp
                         )
                     )
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text(text = "Laba Bersih / Bulan", style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 11.sp))
+                    Text(text = "Laba Bersih / Bulan", style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp))
                     Text(
                         text = formatRupiahCompact(simResult.monthlyProfit),
                         style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (simResult.monthlyProfit >= 0) SuccessGreen else DangerRed,
-                            fontSize = 20.sp
+                            fontWeight = FontWeight.Black,
+                            color = if (simResult.monthlyProfit >= 0) Color(0xFFFEF08A) else Color(0xFFFECDD3),
+                            fontSize = 21.sp
                         )
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = Slate700)
+            HorizontalDivider(color = Color.White.copy(alpha = 0.25f))
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
@@ -309,7 +305,6 @@ fun WhatIfTabContent(
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    // SLIDERS SECTION
     Text(
         text = "PARAMETER SIMULASI (GESER SLIDER)",
         style = MaterialTheme.typography.titleSmall.copy(
@@ -321,13 +316,12 @@ fun WhatIfTabContent(
     Spacer(modifier = Modifier.height(8.dp))
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Slider 1: Order per hari (30 - 250 kg)
             SliderItem(
                 label = "ORDER PER HARI",
                 currentDisplay = "${state.simOrderKgPerDay.toInt()} kg/hari",
@@ -339,7 +333,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 2: Harga / kg (Rp 6.000 - Rp 20.000)
             SliderItem(
                 label = "HARGA JUAL / KG",
                 currentDisplay = "${formatRupiah(state.simPricePerKg)}/kg",
@@ -351,7 +344,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 3: Karyawan (1 - 10)
             SliderItem(
                 label = "JUMLAH KARYAWAN",
                 currentDisplay = "${state.simStaffCount} orang",
@@ -363,7 +355,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 4: Mesin Cuci (1 - 10)
             SliderItem(
                 label = "JUMLAH MESIN CUCI",
                 currentDisplay = "${state.simWashingMachines} unit",
@@ -375,7 +366,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 5: Dryer (0 - 10)
             SliderItem(
                 label = "JUMLAH DRYER",
                 currentDisplay = "${state.simDryers} unit",
@@ -387,7 +377,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 6: Sewa Tempat (0 - 30 jt)
             SliderItem(
                 label = "SEWA BULANAN",
                 currentDisplay = formatRupiahCompact(state.simRentMonthly),
@@ -399,7 +388,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 7: Listrik Bulanan (1jt - 10jt)
             SliderItem(
                 label = "LISTRIK BULANAN",
                 currentDisplay = formatRupiahCompact(state.simElectricityMonthly),
@@ -411,7 +399,6 @@ fun WhatIfTabContent(
 
             HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 10.dp))
 
-            // Slider 8: Gaji per orang (1.5jt - 7jt)
             SliderItem(
                 label = "GAJI PER ORANG",
                 currentDisplay = formatRupiah(state.simSalaryPerStaff),
@@ -433,10 +420,10 @@ fun MachineInvestmentTabContent(
     val input = state.machineInvestmentInput
 
     Card(
-        colors = CardDefaults.cardColors(containerColor = if (result.isRecommended) Color(0xFFECFDF5) else WarningYellowBg),
-        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = if (result.isRecommended) MintTintBg else SunnyTintBg),
+        shape = RoundedCornerShape(16.dp),
         border = CardDefaults.outlinedCardBorder().copy(
-            brush = androidx.compose.ui.graphics.SolidColor(if (result.isRecommended) SuccessGreenBorder else WarningYellowBorder)
+            brush = androidx.compose.ui.graphics.SolidColor(if (result.isRecommended) MintTintBorder else SunnyTintBorder)
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -445,7 +432,7 @@ fun MachineInvestmentTabContent(
                 Icon(
                     imageVector = if (result.isRecommended) Icons.Default.CheckCircle else Icons.Default.Warning,
                     contentDescription = null,
-                    tint = if (result.isRecommended) SuccessGreen else WarningYellow,
+                    tint = if (result.isRecommended) MintEmeraldDark else SunnyAmberDark,
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -453,7 +440,7 @@ fun MachineInvestmentTabContent(
                     text = result.recommendationTitle,
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.ExtraBold,
-                        color = if (result.isRecommended) Color(0xFF065F46) else Color(0xFF92400E)
+                        color = if (result.isRecommended) MintEmeraldDark else SunnyAmberDark
                     )
                 )
             }
@@ -470,17 +457,16 @@ fun MachineInvestmentTabContent(
 
     Spacer(modifier = Modifier.height(14.dp))
 
-    // Form Input Mesin Baru
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = "SIMULATOR PEMBELIAN MESIN",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Slate900)
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = Slate900)
             )
 
             Spacer(modifier = Modifier.height(10.dp))
@@ -535,37 +521,35 @@ fun MachineInvestmentTabContent(
             )
 
             Spacer(modifier = Modifier.height(14.dp))
-
-            // Output Metrics
             HorizontalDivider(color = Slate100)
             Spacer(modifier = Modifier.height(10.dp))
 
-            Text("PROYEKSI KELAYAKAN INVESTASI", style = MaterialTheme.typography.labelSmall.copy(color = Slate500, fontWeight = FontWeight.Bold))
+            Text("PROYEKSI KELAYAKAN INVESTASI", style = MaterialTheme.typography.labelSmall.copy(color = OceanBlueDeep, fontWeight = FontWeight.ExtraBold))
             Spacer(modifier = Modifier.height(6.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Tambahan Kapasitas", style = MaterialTheme.typography.bodySmall)
-                Text("+${result.additionalDailyCapacityKg.toInt()} kg/hari", fontWeight = FontWeight.Bold)
+                Text("Tambahan Kapasitas", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("+${result.additionalDailyCapacityKg.toInt()} kg/hari", fontWeight = FontWeight.Bold, color = Slate900)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Potensi Omzet Tambahan", style = MaterialTheme.typography.bodySmall)
-                Text(formatRupiah(result.additionalMonthlyRevenuePotential), fontWeight = FontWeight.Bold)
+                Text("Potensi Omzet Tambahan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text(formatRupiah(result.additionalMonthlyRevenuePotential), fontWeight = FontWeight.Bold, color = Slate900)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Tambahan Laba Bersih", style = MaterialTheme.typography.bodySmall)
-                Text(formatRupiah(result.additionalMonthlyNetProfit), fontWeight = FontWeight.Bold, color = SuccessGreen)
+                Text("Tambahan Laba Bersih", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text(formatRupiah(result.additionalMonthlyNetProfit), fontWeight = FontWeight.ExtraBold, color = MintEmeraldDark)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Payback Period", style = MaterialTheme.typography.bodySmall)
+                Text("Payback Period", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
                 Text("${String.format("%.1f", result.paybackPeriodMonths)} Bulan", fontWeight = FontWeight.ExtraBold, color = OceanBlueDark)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("ROI Tahunan", style = MaterialTheme.typography.bodySmall)
-                Text("${result.annualROI.toInt()}% / tahun", fontWeight = FontWeight.Bold)
+                Text("ROI Tahunan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("${result.annualROI.toInt()}% / tahun", fontWeight = FontWeight.Bold, color = Slate900)
             }
         }
     }
@@ -580,17 +564,16 @@ fun TargetAndPricingTabContent(
 ) {
     val config = state.config
 
-    // 1. Target Profit Calculator
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = "KALKULATOR TARGET PROFIT BULANAN",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Slate900)
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = Slate900)
             )
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -607,58 +590,56 @@ fun TargetAndPricingTabContent(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Formula: Required kg = (Monthly Fixed Cost + Target Profit) / Contribution Margin per kg
             val contributionMargin = (config.regularPricePerKg - config.variableCostPerKg).coerceAtLeast(100.0)
             val neededKgMonthly = (config.totalPureFixedCostMonthly + state.targetProfitMonthly) / contributionMargin
             val neededKgDaily = neededKgMonthly / 30.0
             val avgOrderWeight = 6.0
             val neededOrdersDaily = neededKgDaily / avgOrderWeight
-            val neededMachines = (neededKgDaily / (config.washingCapacityPerMachineKg * 10.0)).toInt().coerceAtLeast(1)
+            val neededMachines = (neededKgDaily / (config.washingCapacityPerMachineKg.coerceAtLeast(1.0) * 10.0)).toInt().coerceAtLeast(1)
             val neededStaff = (neededKgDaily / 30.0).toInt().coerceAtLeast(1)
 
             Text("Untuk mencapai target ${formatRupiah(state.targetProfitMonthly)}/bulan:", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
             Spacer(modifier = Modifier.height(6.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Dibutuhkan per Bulan", style = MaterialTheme.typography.bodySmall)
-                Text("${neededKgMonthly.toInt()} kg/bulan", fontWeight = FontWeight.Bold)
+                Text("Dibutuhkan per Bulan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("${neededKgMonthly.toInt()} kg/bulan", fontWeight = FontWeight.Bold, color = Slate900)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Dibutuhkan per Hari", style = MaterialTheme.typography.bodySmall)
-                Text("${neededKgDaily.toInt()} kg/hari", fontWeight = FontWeight.Bold, color = OceanBluePrimary)
+                Text("Dibutuhkan per Hari", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("${neededKgDaily.toInt()} kg/hari", fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Order Rata-rata", style = MaterialTheme.typography.bodySmall)
-                Text("${neededOrdersDaily.toInt()} order/hari", fontWeight = FontWeight.Bold)
+                Text("Order Rata-rata", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("${neededOrdersDaily.toInt()} order/hari", fontWeight = FontWeight.Bold, color = Slate900)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Kebutuhan Mesin Cuci", style = MaterialTheme.typography.bodySmall)
-                Text("$neededMachines unit", fontWeight = FontWeight.Bold)
+                Text("Kebutuhan Mesin Cuci", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("$neededMachines unit", fontWeight = FontWeight.Bold, color = Slate900)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Kebutuhan Karyawan", style = MaterialTheme.typography.bodySmall)
-                Text("$neededStaff orang", fontWeight = FontWeight.Bold)
+                Text("Kebutuhan Karyawan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text("$neededStaff orang", fontWeight = FontWeight.Bold, color = Slate900)
             }
         }
     }
 
     Spacer(modifier = Modifier.height(16.dp))
 
-    // 2. Pricing Simulator
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(14.dp),
-        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(CardBorderLight)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
                 text = "PRICING SIMULATOR",
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Slate900)
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.ExtraBold, color = Slate900)
             )
             Text(
                 text = "Berapa harga yang seharusnya saya pasang?",
@@ -666,7 +647,6 @@ fun TargetAndPricingTabContent(
             )
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Full cost per kg
             val unitEco = BusinessEngine.computeUnitEconomics(config)
             val fullCostPerKg = unitEco.variableCostPerKg + unitEco.fixedCostAllocationPerKg
 
@@ -695,30 +675,30 @@ fun TargetAndPricingTabContent(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            val minViablePrice = fullCostPerKg * 1.10 // 10% safety margin
+            val minViablePrice = fullCostPerKg * 1.10
             val recommendedPrice = fullCostPerKg / (1.0 - (state.pricingTargetMarginPercent / 100.0)).coerceAtLeast(0.1)
             val targetPrice = maxOf(recommendedPrice, state.pricingCompetitorPrice * 0.95)
 
-            Text("ANALISIS REKOMENDASI HARGA", style = MaterialTheme.typography.labelSmall.copy(color = Slate500, fontWeight = FontWeight.Bold))
+            Text("ANALISIS REKOMENDASI HARGA", style = MaterialTheme.typography.labelSmall.copy(color = OceanBlueDeep, fontWeight = FontWeight.ExtraBold))
             Spacer(modifier = Modifier.height(6.dp))
 
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Cost / kg (Full HPP)", style = MaterialTheme.typography.bodySmall)
-                Text(formatRupiah(fullCostPerKg), fontWeight = FontWeight.Bold)
+                Text("Cost / kg (Full HPP)", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text(formatRupiah(fullCostPerKg), fontWeight = FontWeight.Bold, color = Slate900)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Harga Minimum (Viable)", style = MaterialTheme.typography.bodySmall)
-                Text(formatRupiah(minViablePrice), fontWeight = FontWeight.Bold, color = DangerRed)
+                Text("Harga Minimum (Viable)", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text(formatRupiah(minViablePrice), fontWeight = FontWeight.Bold, color = CoralRose)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Harga Sehat (Recommended)", style = MaterialTheme.typography.bodySmall)
-                Text(formatRupiah(recommendedPrice), fontWeight = FontWeight.Bold, color = SuccessGreen)
+                Text("Harga Sehat (Recommended)", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
+                Text(formatRupiah(recommendedPrice), fontWeight = FontWeight.ExtraBold, color = MintEmeraldDark)
             }
             Spacer(modifier = Modifier.height(4.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Harga Target Bersaing", style = MaterialTheme.typography.bodySmall)
+                Text("Harga Target Bersaing", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
                 Text(formatRupiah(targetPrice), fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary)
             }
         }
@@ -765,7 +745,7 @@ fun SliderItem(
             colors = SliderDefaults.colors(
                 thumbColor = OceanBluePrimary,
                 activeTrackColor = OceanBluePrimary,
-                inactiveTrackColor = Slate200
+                inactiveTrackColor = SkyTintBg
             ),
             modifier = Modifier.fillMaxWidth()
         )
@@ -775,7 +755,7 @@ fun SliderItem(
 @Composable
 fun SimStatSubItem(label: String, value: String) {
     Column {
-        Text(text = label, style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 10.sp))
-        Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp))
+        Text(text = label, style = MaterialTheme.typography.bodySmall.copy(color = Color.White.copy(alpha = 0.80f), fontSize = 10.sp))
+        Text(text = value, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color.White, fontSize = 12.sp))
     }
 }

@@ -1,14 +1,12 @@
 package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.data.SampleData
 import com.example.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 data class CockpitUiState(
@@ -128,6 +126,28 @@ class LaundryCockpitViewModel : ViewModel() {
                 simRentMonthly = newConfig.rentMonthly,
                 simElectricityMonthly = newConfig.electricityMonthlyBase,
                 simSalaryPerStaff = newConfig.salaryPerStaffMonthly
+            )
+        }
+    }
+
+    /**
+     * Synchronizes live 3D Tycoon SimulationEngine config and orders directly into the ERP Cockpit & Simulator.
+     */
+    fun syncFromSimulation(simConfig: BusinessConfig, simOrders: List<LaundryOrder>) {
+        _uiState.update { state ->
+            state.copy(
+                config = simConfig,
+                orders = if (simOrders.isNotEmpty()) simOrders else state.orders,
+                simOrderKgPerDay = simConfig.targetKgPerDay,
+                simPricePerKg = simConfig.regularPricePerKg,
+                simStaffCount = simConfig.staffCount,
+                simWashingMachines = simConfig.washingMachineCount,
+                simDryers = simConfig.dryerCount,
+                simRentMonthly = simConfig.rentMonthly,
+                simElectricityMonthly = simConfig.electricityMonthlyBase,
+                simSalaryPerStaff = simConfig.salaryPerStaffMonthly,
+                activeScenario = ScenarioPreset.NORMAL,
+                scenarioImpactText = "✅ Data live 3D Tycoon berhasil disinkronkan ke Simulator ERP!"
             )
         }
     }

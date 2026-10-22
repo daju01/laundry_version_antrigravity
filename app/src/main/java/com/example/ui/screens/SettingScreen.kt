@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -58,6 +59,7 @@ fun SettingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(Slate50)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(top = 12.dp, bottom = 96.dp)
@@ -83,7 +85,7 @@ fun SettingScreen(
 
         // 1. Profil & Target
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -151,7 +153,7 @@ fun SettingScreen(
 
         // 2. Mesin Cuci & Dryer & Setrika
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -190,7 +192,7 @@ fun SettingScreen(
 
         // 3. Karyawan & Biaya Operasional
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -237,26 +239,26 @@ fun SettingScreen(
             onClick = {
                 val updatedConfig = state.config.copy(
                     businessName = businessName.ifBlank { "Laundry Bersih" },
-                    regularPricePerKg = regularPrice.toDoubleOrNull() ?: state.config.regularPricePerKg,
-                    expressPricePerKg = expressPrice.toDoubleOrNull() ?: state.config.expressPricePerKg,
-                    targetKgPerDay = targetKg.toDoubleOrNull() ?: state.config.targetKgPerDay,
-                    operatingHoursPerDay = operatingHours.toDoubleOrNull() ?: state.config.operatingHoursPerDay,
-                    operatingEfficiency = (efficiency.toDoubleOrNull() ?: (state.config.operatingEfficiency * 100)) / 100.0,
-                    washingMachineCount = washingCount.toIntOrNull() ?: state.config.washingMachineCount,
-                    washingCapacityPerMachineKg = washingCapacity.toDoubleOrNull() ?: state.config.washingCapacityPerMachineKg,
-                    washingCycleDurationMinutes = washingCycle.toDoubleOrNull() ?: state.config.washingCycleDurationMinutes,
-                    dryerCount = dryerCount.toIntOrNull() ?: state.config.dryerCount,
-                    dryerCapacityPerMachineKg = dryerCapacity.toDoubleOrNull() ?: state.config.dryerCapacityPerMachineKg,
-                    dryerCycleDurationMinutes = dryerCycle.toDoubleOrNull() ?: state.config.dryerCycleDurationMinutes,
-                    ironCount = ironCount.toIntOrNull() ?: state.config.ironCount,
-                    ironCapacityPerUnitPerHourKg = ironCapacityRate.toDoubleOrNull() ?: state.config.ironCapacityPerUnitPerHourKg,
-                    staffCount = staffCount.toIntOrNull() ?: state.config.staffCount,
-                    salaryPerStaffMonthly = salaryPerStaff.toDoubleOrNull() ?: state.config.salaryPerStaffMonthly,
-                    rentMonthly = rent.toDoubleOrNull() ?: state.config.rentMonthly,
-                    electricityMonthlyBase = electricity.toDoubleOrNull() ?: state.config.electricityMonthlyBase,
-                    waterMonthlyBase = water.toDoubleOrNull() ?: state.config.waterMonthlyBase,
-                    chemicalPerKg = chemical.toDoubleOrNull() ?: state.config.chemicalPerKg,
-                    initialCash = initialCash.toDoubleOrNull() ?: state.config.initialCash
+                    regularPricePerKg = (regularPrice.toDoubleOrNull() ?: state.config.regularPricePerKg).coerceAtLeast(1_000.0),
+                    expressPricePerKg = (expressPrice.toDoubleOrNull() ?: state.config.expressPricePerKg).coerceAtLeast(1_000.0),
+                    targetKgPerDay = (targetKg.toDoubleOrNull() ?: state.config.targetKgPerDay).coerceAtLeast(1.0),
+                    operatingHoursPerDay = (operatingHours.toDoubleOrNull() ?: state.config.operatingHoursPerDay).coerceIn(1.0, 24.0),
+                    operatingEfficiency = ((efficiency.toDoubleOrNull() ?: (state.config.operatingEfficiency * 100)) / 100.0).coerceIn(0.1, 1.0),
+                    washingMachineCount = (washingCount.toIntOrNull() ?: state.config.washingMachineCount).coerceAtLeast(1),
+                    washingCapacityPerMachineKg = (washingCapacity.toDoubleOrNull() ?: state.config.washingCapacityPerMachineKg).coerceAtLeast(1.0),
+                    washingCycleDurationMinutes = (washingCycle.toDoubleOrNull() ?: state.config.washingCycleDurationMinutes).coerceAtLeast(1.0),
+                    dryerCount = (dryerCount.toIntOrNull() ?: state.config.dryerCount).coerceAtLeast(0),
+                    dryerCapacityPerMachineKg = (dryerCapacity.toDoubleOrNull() ?: state.config.dryerCapacityPerMachineKg).coerceAtLeast(1.0),
+                    dryerCycleDurationMinutes = (dryerCycle.toDoubleOrNull() ?: state.config.dryerCycleDurationMinutes).coerceAtLeast(1.0),
+                    ironCount = (ironCount.toIntOrNull() ?: state.config.ironCount).coerceAtLeast(1),
+                    ironCapacityPerUnitPerHourKg = (ironCapacityRate.toDoubleOrNull() ?: state.config.ironCapacityPerUnitPerHourKg).coerceAtLeast(1.0),
+                    staffCount = (staffCount.toIntOrNull() ?: state.config.staffCount).coerceAtLeast(1),
+                    salaryPerStaffMonthly = (salaryPerStaff.toDoubleOrNull() ?: state.config.salaryPerStaffMonthly).coerceAtLeast(0.0),
+                    rentMonthly = (rent.toDoubleOrNull() ?: state.config.rentMonthly).coerceAtLeast(0.0),
+                    electricityMonthlyBase = (electricity.toDoubleOrNull() ?: state.config.electricityMonthlyBase).coerceAtLeast(0.0),
+                    waterMonthlyBase = (water.toDoubleOrNull() ?: state.config.waterMonthlyBase).coerceAtLeast(0.0),
+                    chemicalPerKg = (chemical.toDoubleOrNull() ?: state.config.chemicalPerKg).coerceAtLeast(0.0),
+                    initialCash = (initialCash.toDoubleOrNull() ?: state.config.initialCash).coerceAtLeast(0.0)
                 )
                 onSaveConfig(updatedConfig)
                 showSavedSnackbar = true

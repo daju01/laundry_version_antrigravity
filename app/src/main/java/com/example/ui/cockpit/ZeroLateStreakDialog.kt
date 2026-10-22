@@ -1,9 +1,6 @@
 package com.example.ui.cockpit
 
-import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -12,7 +9,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -23,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.sim.SimulationEngine
 import com.example.sim.formatMoney
+import com.example.ui.theme.*
 
 @Composable
 fun ZeroLateStreakDialog(
@@ -32,28 +29,17 @@ fun ZeroLateStreakDialog(
 ) {
     val info = engine.getZeroLateStreakInfo()
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse_dialog")
-    val scalePulse by infiniteTransition.animateFloat(
-        initialValue = 0.95f,
-        targetValue = 1.05f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "scalePulse"
-    )
-
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(24.dp),
             border = CardDefaults.outlinedCardBorder().copy(
-                brush = Brush.verticalGradient(listOf(Color(0xFF10B981), Color(0xFF0284C7), Color(0xFF1E293B))),
+                brush = Brush.verticalGradient(listOf(MintEmerald, OceanBluePrimary)),
                 width = 2.dp
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(8.dp)
                 .testTag("zero_late_streak_dialog")
         ) {
             Column(
@@ -62,37 +48,31 @@ fun ZeroLateStreakDialog(
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Animated Glowing Shield Icon
                 Box(
                     modifier = Modifier
-                        .size(68.dp)
+                        .size(64.dp)
                         .clip(CircleShape)
-                        .background(
-                            Brush.radialGradient(
-                                listOf(Color(0xFF10B981), Color(0xFF064E3B), Color(0xFF0F172A))
-                            )
-                        )
-                        .border(2.dp, Color(0xFF34D399), CircleShape),
+                        .background(Brush.radialGradient(listOf(MintEmerald, TealAccent))),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🛡️", fontSize = 32.sp)
+                    Text("🛡️", fontSize = 30.sp)
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
                     text = "STREAK BEBAS TELAT",
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp,
-                    color = Color(0xFF34D399)
+                    color = MintEmeraldDark
                 )
 
                 Text(
                     text = "${info.currentStreakDays} HARI BERTURUT-TURUT",
-                    fontSize = 20.sp,
+                    fontSize = 19.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
+                    color = Slate900,
                     textAlign = TextAlign.Center
                 )
 
@@ -100,12 +80,11 @@ fun ZeroLateStreakDialog(
                     text = info.tierTitle,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFFFDE68A)
+                    color = OceanBlueDark
                 )
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Stats Matrix
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -113,13 +92,15 @@ fun ZeroLateStreakDialog(
                     MetricBox(
                         title = "Status Hari Ini",
                         value = if (info.todayLateOrders == 0) "0 Terlambat ✅" else "${info.todayLateOrders} Telat ⚠️",
-                        color = if (info.todayLateOrders == 0) Color(0xFF10B981) else Color(0xFFEF4444),
+                        bgColor = if (info.todayLateOrders == 0) MintTintBg else CoralTintBg,
+                        color = if (info.todayLateOrders == 0) MintEmeraldDark else CoralRoseDark,
                         modifier = Modifier.weight(1f)
                     )
                     MetricBox(
                         title = "Rekor Tertinggi",
                         value = "${info.highestStreakDays} Hari",
-                        color = Color(0xFF38BDF8),
+                        bgColor = SkyTintBg,
+                        color = OceanBlueDeep,
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -133,23 +114,25 @@ fun ZeroLateStreakDialog(
                     MetricBox(
                         title = "Bonus Kepuasan",
                         value = "+${((info.visualSatisfactionBonusMultiplier - 1.0) * 100).toInt()}% Multiplier",
-                        color = Color(0xFFF59E0B),
+                        bgColor = SunnyTintBg,
+                        color = SunnyAmberDark,
                         modifier = Modifier.weight(1f)
                     )
                     MetricBox(
                         title = "Akumulasi Bonus",
                         value = formatMoney(info.bonusCashAccumulated),
-                        color = Color(0xFFA78BFA),
+                        bgColor = LavenderTintBg,
+                        color = BerryLavenderDark,
                         modifier = Modifier.weight(1f)
                     )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Milestone Tier Progress
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Slate50),
+                    shape = RoundedCornerShape(14.dp),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
@@ -157,7 +140,7 @@ fun ZeroLateStreakDialog(
                             text = "🏆 TINGKATAN KEPATUHAN WAKTU",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.ExtraBold,
-                            color = Color(0xFF94A3B8)
+                            color = Slate500
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         StreakTierRow("1 Hari", "Disiplin Standar (+Rp 40k)", info.currentStreakDays >= 1)
@@ -169,7 +152,6 @@ fun ZeroLateStreakDialog(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -179,20 +161,19 @@ fun ZeroLateStreakDialog(
                             com.example.audio.GameSoundManager.playStreakBonusChime()
                             onCelebrate()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF059669)),
+                        colors = ButtonDefaults.buttonColors(containerColor = MintEmerald),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f).testTag("celebrate_streak_btn")
                     ) {
-                        Text("✨ Rayakan Efisiensi!", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("✨ Klaim Bonus!", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                     }
 
                     OutlinedButton(
                         onClick = onDismiss,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE2E8F0)),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Tutup", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Tutup", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate700)
                     }
                 }
             }
@@ -204,18 +185,19 @@ fun ZeroLateStreakDialog(
 private fun MetricBox(
     title: String,
     value: String,
+    bgColor: Color,
     color: Color,
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor),
+        shape = RoundedCornerShape(12.dp),
         modifier = modifier
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
-            Text(title, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
+            Text(title, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, color = Slate600)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(value, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = color)
+            Text(value, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold, color = color)
         }
     }
 }
@@ -236,13 +218,13 @@ private fun StreakTierRow(label: String, reward: String, isAchieved: Boolean) {
                 text = label,
                 fontSize = 11.sp,
                 fontWeight = if (isAchieved) FontWeight.Bold else FontWeight.Normal,
-                color = if (isAchieved) Color.White else Color(0xFF64748B)
+                color = if (isAchieved) Slate900 else Slate400
             )
         }
         Text(
             text = reward,
-            fontSize = 10.sp,
-            color = if (isAchieved) Color(0xFF34D399) else Color(0xFF64748B),
+            fontSize = 10.5.sp,
+            color = if (isAchieved) MintEmeraldDark else Slate400,
             fontWeight = FontWeight.Bold
         )
     }

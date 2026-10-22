@@ -6,12 +6,21 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
@@ -20,17 +29,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.sim.StationPhase
-import com.example.ui.screens.MainGameCockpitScreen
-import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.components.AddOrderBottomSheet
+import com.example.ui.screens.*
+import com.example.ui.theme.*
 import com.example.viewmodel.GameCockpitViewModel
+import com.example.viewmodel.LaundryCockpitViewModel
 
-enum class NavGameTab(val title: String, val icon: ImageVector, val tag: String) {
-    COCKPIT_3D("3D Cockpit", Icons.Default.ViewInAr, "tab_3d_cockpit"),
-    PIPELINE("Pipeline", Icons.Default.LinearScale, "tab_pipeline"),
-    TIM_ALAT("Tim & Alat", Icons.Default.Engineering, "tab_tim_alat"),
-    KEUANGAN("Keuangan", Icons.Default.AccountBalanceWallet, "tab_keuangan"),
-    PANDUAN("Panduan", Icons.Default.HelpOutline, "tab_panduan")
+enum class NavGameTab(val title: String, val icon: ImageVector, val tag: String, val accentColor: Color) {
+    COCKPIT_3D("3D Studio", Icons.Default.ViewInAr, "tab_3d_cockpit", OceanBluePrimary),
+    PIPELINE("Pipeline", Icons.Default.LinearScale, "tab_pipeline", MintEmerald),
+    TIM_ALAT("Tim & Alat", Icons.Default.Engineering, "tab_tim_alat", TealAccent),
+    KEUANGAN("Keuangan", Icons.Default.AccountBalanceWallet, "tab_keuangan", SunnyAmberDark),
+    PANDUAN("Panduan", Icons.Default.HelpOutline, "tab_panduan", BerryLavender)
+}
+
+enum class WorkspaceMode(val label: String, val tag: String, val primaryColor: Color, val secondaryColor: Color) {
+    TYCOON_3D("🎮 3D Studio", "mode_tycoon_3d", OceanBluePrimary, CyanGlow),
+    ERP_COCKPIT("📊 Ringkasan KPI", "mode_erp_cockpit", MintEmerald, TealAccent),
+    ERP_OPERASI("🧺 Antrean Order", "mode_erp_operasi", OceanBlueDark, OceanBluePrimary),
+    ERP_KEUANGAN("💰 Keuangan & BEP", "mode_erp_keuangan", SunnyAmberDark, SunnyAmber),
+    ERP_SIMULATOR("🎛️ Simulator", "mode_erp_simulator", BerryLavender, Color(0xFFA855F7)),
+    ERP_SETTING("⚙️ Pengaturan", "mode_erp_setting", CoralRose, Color(0xFFFB7185))
 }
 
 class MainActivity : ComponentActivity() {
@@ -48,25 +67,51 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun UnifiedLaundryGameApp(
-    viewModel: GameCockpitViewModel = viewModel()
+    viewModel: GameCockpitViewModel = viewModel(),
+    erpViewModel: LaundryCockpitViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var currentNavTab by remember { mutableStateOf(NavGameTab.COCKPIT_3D) }
+    val erpState by erpViewModel.uiState.collectAsStateWithLifecycle()
 
-    // If back is pressed on another tab, return to main 3D Cockpit
-    BackHandler(enabled = currentNavTab != NavGameTab.COCKPIT_3D) {
+    var currentNavTab by remember { mutableStateOf(NavGameTab.COCKPIT_3D) }
+    var currentWorkspaceMode by remember { mutableStateOf(WorkspaceMode.TYCOON_3D) }
+    var tycoonDetailTab by remember { mutableIntStateOf(0) }
+
+    BackHandler(enabled = currentNavTab != NavGameTab.COCKPIT_3D || currentWorkspaceMode != WorkspaceMode.TYCOON_3D) {
         currentNavTab = NavGameTab.COCKPIT_3D
+        currentWorkspaceMode = WorkspaceMode.TYCOON_3D
+        tycoonDetailTab = 0
     }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = Color(0xFF0F172A),
+        containerColor = AppCanvasBg,
+        topBar = {
+            WorkspaceModeSwitcherBar(
+                currentMode = currentWorkspaceMode,
+                onSelectMode = { mode ->
+                    currentWorkspaceMode = mode
+                },
+                onSyncGameToErp = {
+                    erpViewModel.syncFromSimulation(
+                        simConfig = viewModel.toBusinessConfig(),
+                        simOrders = viewModel.toBusinessOrders()
+                    )
+                    if (currentWorkspaceMode == WorkspaceMode.TYCOON_3D) {
+                        currentWorkspaceMode = WorkspaceMode.ERP_SIMULATOR
+                    }
+                }
+            )
+        },
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF1E293B),
-                tonalElevation = 8.dp,
+                containerColor = Color.White,
+                tonalElevation = 10.dp,
                 windowInsets = WindowInsets.navigationBars,
-                modifier = Modifier.testTag("bottom_nav_bar")
+                modifier = Modifier
+                    .shadow(12.dp, spotColor = Color(0x220284C7))
+                    .border(width = 1.dp, color = CardBorderLight)
+                    .testTag("bottom_nav_bar")
             ) {
                 NavGameTab.values().forEach { tab ->
                     val isSelected = currentNavTab == tab
@@ -77,6 +122,32 @@ fun UnifiedLaundryGameApp(
                                 viewModel.openOnboarding()
                             } else {
                                 currentNavTab = tab
+                                viewModel.setBottomTab(tab.name)
+                                when (tab) {
+                                    NavGameTab.COCKPIT_3D -> {
+                                        currentWorkspaceMode = WorkspaceMode.TYCOON_3D
+                                        tycoonDetailTab = 0
+                                    }
+                                    NavGameTab.PIPELINE -> {
+                                        tycoonDetailTab = 1
+                                        if (currentWorkspaceMode != WorkspaceMode.TYCOON_3D) {
+                                            currentWorkspaceMode = WorkspaceMode.ERP_OPERASI
+                                        }
+                                    }
+                                    NavGameTab.TIM_ALAT -> {
+                                        tycoonDetailTab = 2
+                                        if (currentWorkspaceMode != WorkspaceMode.TYCOON_3D) {
+                                            currentWorkspaceMode = WorkspaceMode.ERP_SETTING
+                                        }
+                                    }
+                                    NavGameTab.KEUANGAN -> {
+                                        tycoonDetailTab = 3
+                                        if (currentWorkspaceMode != WorkspaceMode.TYCOON_3D) {
+                                            currentWorkspaceMode = WorkspaceMode.ERP_KEUANGAN
+                                        }
+                                    }
+                                    NavGameTab.PANDUAN -> {}
+                                }
                             }
                         },
                         icon = {
@@ -89,16 +160,16 @@ fun UnifiedLaundryGameApp(
                         label = {
                             Text(
                                 text = tab.title,
-                                fontSize = 10.sp,
-                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium
+                                fontSize = 10.5.sp,
+                                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color(0xFF38BDF8),
-                            selectedTextColor = Color(0xFF38BDF8),
-                            indicatorColor = Color(0xFF0284C7).copy(alpha = 0.25f),
-                            unselectedIconColor = Color(0xFF94A3B8),
-                            unselectedTextColor = Color(0xFF94A3B8)
+                            selectedIconColor = tab.accentColor,
+                            selectedTextColor = tab.accentColor,
+                            indicatorColor = tab.accentColor.copy(alpha = 0.14f),
+                            unselectedIconColor = Slate500,
+                            unselectedTextColor = Slate500
                         ),
                         modifier = Modifier.testTag(tab.tag)
                     )
@@ -110,40 +181,157 @@ fun UnifiedLaundryGameApp(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFF0F172A))
+                .background(
+                    Brush.verticalGradient(
+                        listOf(AppCanvasBg, AppCanvasSecondaryBg)
+                    )
+                )
         ) {
-            when (currentNavTab) {
-                NavGameTab.COCKPIT_3D -> {
+            when (currentWorkspaceMode) {
+                WorkspaceMode.TYCOON_3D -> {
                     MainGameCockpitScreen(
                         viewModel = viewModel,
-                        uiState = uiState
+                        uiState = uiState,
+                        externalDetailTab = tycoonDetailTab,
+                        onDetailTabChanged = { idx ->
+                            tycoonDetailTab = idx
+                            currentNavTab = when (idx) {
+                                1 -> NavGameTab.PIPELINE
+                                2 -> NavGameTab.TIM_ALAT
+                                3 -> NavGameTab.KEUANGAN
+                                else -> NavGameTab.COCKPIT_3D
+                            }
+                        }
                     )
                 }
-                NavGameTab.PIPELINE -> {
-                    // Navigate directly with station inspection ready
-                    MainGameCockpitScreen(
-                        viewModel = viewModel,
-                        uiState = uiState
+                WorkspaceMode.ERP_COCKPIT -> {
+                    CockpitScreen(
+                        state = erpState,
+                        onOpenAddOrder = { erpViewModel.openAddOrderSheet() },
+                        onNavigateToOperasi = {
+                            currentWorkspaceMode = WorkspaceMode.ERP_OPERASI
+                            currentNavTab = NavGameTab.PIPELINE
+                        },
+                        onNavigateToSimulator = {
+                            currentWorkspaceMode = WorkspaceMode.ERP_SIMULATOR
+                        }
                     )
                 }
-                NavGameTab.TIM_ALAT -> {
-                    MainGameCockpitScreen(
-                        viewModel = viewModel,
-                        uiState = uiState
+                WorkspaceMode.ERP_OPERASI -> {
+                    OperasiScreen(
+                        state = erpState,
+                        onAdvanceOrderStatus = { erpViewModel.advanceOrderStatus(it) },
+                        onDeleteOrder = { erpViewModel.deleteOrder(it) },
+                        onOpenAddOrder = { erpViewModel.openAddOrderSheet() }
                     )
                 }
-                NavGameTab.KEUANGAN -> {
-                    MainGameCockpitScreen(
-                        viewModel = viewModel,
-                        uiState = uiState
+                WorkspaceMode.ERP_KEUANGAN -> {
+                    KeuanganScreen(
+                        state = erpState
                     )
                 }
-                NavGameTab.PANDUAN -> {
-                    MainGameCockpitScreen(
-                        viewModel = viewModel,
-                        uiState = uiState
+                WorkspaceMode.ERP_SIMULATOR -> {
+                    SimulatorScreen(
+                        state = erpState,
+                        onUpdateOrderKg = { erpViewModel.updateSimOrderKg(it) },
+                        onUpdatePrice = { erpViewModel.updateSimPrice(it) },
+                        onUpdateStaff = { erpViewModel.updateSimStaff(it) },
+                        onUpdateWashingMachines = { erpViewModel.updateSimWashingMachines(it) },
+                        onUpdateDryers = { erpViewModel.updateSimDryers(it) },
+                        onUpdateRent = { erpViewModel.updateSimRent(it) },
+                        onUpdateElectricity = { erpViewModel.updateSimElectricity(it) },
+                        onUpdateSalary = { erpViewModel.updateSimSalary(it) },
+                        onApplyScenario = { erpViewModel.applyScenario(it) },
+                        onUpdateMachineInvestmentInput = { erpViewModel.updateMachineInvestmentInput(it) },
+                        onUpdateTargetProfit = { erpViewModel.updateTargetProfit(it) },
+                        onUpdatePricingMargin = { erpViewModel.updatePricingTargetMargin(it) },
+                        onUpdatePricingCompetitor = { erpViewModel.updatePricingCompetitor(it) }
                     )
                 }
+                WorkspaceMode.ERP_SETTING -> {
+                    SettingScreen(
+                        state = erpState,
+                        onSaveConfig = { erpViewModel.updateConfig(it) },
+                        onResetToDefault = { erpViewModel.resetToSampleData() }
+                    )
+                }
+            }
+
+            if (erpState.isAddOrderSheetOpen) {
+                AddOrderBottomSheet(
+                    config = erpState.config,
+                    onDismiss = { erpViewModel.closeAddOrderSheet() },
+                    onSubmit = { name, phone, service, weight, price, deadline, status ->
+                        erpViewModel.addOrder(name, phone, service, weight, price, deadline, status)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceModeSwitcherBar(
+    currentMode: WorkspaceMode,
+    onSelectMode: (WorkspaceMode) -> Unit,
+    onSyncGameToErp: () -> Unit
+) {
+    Surface(
+        color = Color.White,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            WorkspaceMode.values().forEach { mode ->
+                val isSelected = currentMode == mode
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(
+                            if (isSelected) Brush.horizontalGradient(listOf(mode.primaryColor, mode.secondaryColor))
+                            else Brush.linearGradient(listOf(Slate100, Slate100))
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = if (isSelected) mode.primaryColor else Slate200,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .clickable { onSelectMode(mode) }
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                        .testTag(mode.tag)
+                ) {
+                    Text(
+                        text = mode.label,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                        color = if (isSelected) Color.White else Slate700
+                    )
+                }
+            }
+
+            // Clean 1-Tap Sync Pill
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MintTintBg)
+                    .border(1.dp, MintEmerald, RoundedCornerShape(12.dp))
+                    .clickable { onSyncGameToErp() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .testTag("btn_sync_game_to_erp")
+            ) {
+                Text(
+                    text = "🔄 Sync ke ERP",
+                    fontSize = 10.5.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = MintEmeraldDark
+                )
             }
         }
     }

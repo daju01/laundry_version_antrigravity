@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.sim.*
+import com.example.ui.theme.*
 
 @Composable
 fun EquipmentShopModal(
@@ -32,12 +33,15 @@ fun EquipmentShopModal(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-            shape = RoundedCornerShape(16.dp),
-            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF334155))),
-            modifier = Modifier.fillMaxWidth().heightIn(max = 520.dp).testTag("shop_dialog")
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(22.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SkyTintBorder), width = 2.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 540.dp)
+                .testTag("shop_dialog")
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(18.dp)) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -46,32 +50,40 @@ fun EquipmentShopModal(
                 ) {
                     Column {
                         Text(
-                            text = "TOKO INVESTASI & TIM",
-                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF38BDF8))
+                            text = "🏪 TOKO INVESTASI & REKRUTMEN",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary)
                         )
                         Text(
-                            text = "Kas Tersedia: ${formatMoney(engine.cash)}",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            text = "Kas: ${formatMoney(engine.cash)}",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900)
                         )
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Color(0xFF94A3B8))
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate500)
                     }
                 }
 
                 if (feedbackMessage != null) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    Text(feedbackMessage!!, fontSize = 11.sp, color = Color(0xFFFDE68A), fontWeight = FontWeight.Bold)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MintTintBg)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Text(feedbackMessage!!, fontSize = 11.sp, color = MintEmeraldDark, fontWeight = FontWeight.ExtraBold)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
                 LazyColumn(
                     modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item {
-                        Text("ALAT & MESIN PENGEMBANGAN", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
+                        Text("MESIN & PERALATAN PRODUKSI", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Slate500)
                     }
 
                     val shopAssets = listOf(
@@ -84,79 +96,90 @@ fun EquipmentShopModal(
                     items(shopAssets) { (asset, benefit, tag) ->
                         val canAfford = engine.cash >= asset.purchaseCost
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = Slate50),
+                            shape = RoundedCornerShape(14.dp),
+                            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
+                            Column(modifier = Modifier.padding(12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Column {
-                                        Text(asset.displayName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                        Text(tag, fontSize = 10.sp, color = Color(0xFF38BDF8), fontWeight = FontWeight.SemiBold)
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("${asset.icon} ${asset.displayName}", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                                        Text(tag, fontSize = 10.sp, color = OceanBlueDark, fontWeight = FontWeight.Bold)
                                     }
-                                    Text(formatMoney(asset.purchaseCost), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = if (canAfford) Color(0xFF10B981) else Color(0xFFEF4444))
+                                    Text(
+                                        text = formatMoney(asset.purchaseCost),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = if (canAfford) MintEmeraldDark else CoralRose
+                                    )
                                 }
                                 Spacer(modifier = Modifier.height(4.dp))
-                                Text(benefit, fontSize = 10.sp, color = Color(0xFF94A3B8))
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(benefit, fontSize = 10.5.sp, color = Slate600)
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Button(
                                     onClick = {
                                         val success = onBuyEquipment(asset)
-                                        feedbackMessage = if (success) "Berhasil membeli ${asset.displayName}!" else "Kas tidak cukup!"
+                                        feedbackMessage = if (success) "✅ Berhasil membeli ${asset.displayName}!" else "⚠️ Saldo kas belum cukup!"
                                     },
                                     enabled = canAfford,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth().height(34.dp)
+                                    colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(36.dp)
                                 ) {
-                                    Text(if (canAfford) "Beli & Pasang Sekarang" else "Kas Tidak Cukup", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = if (canAfford) "Beli & Pasang Sekarang" else "Kas Belum Cukup",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
                                 }
                             }
                         }
                     }
 
                     item {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text("REKRUTMEN PEKERJA BARU", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("REKRUTMEN TIM BARU", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Slate500)
                     }
 
                     item {
                         val hireCost = 500_000.0
                         val canHire = engine.cash >= hireCost
                         Card(
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                            shape = RoundedCornerShape(10.dp),
+                            colors = CardDefaults.cardColors(containerColor = MintTintBg.copy(alpha = 0.45f)),
+                            shape = RoundedCornerShape(14.dp),
+                            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(MintTintBorder)),
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Column(modifier = Modifier.padding(10.dp)) {
+                            Column(modifier = Modifier.padding(12.dp)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column {
-                                        Text("Rekrut Operator Tambahan", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                                        Text("Gaji Rp90.000/hari", fontSize = 10.sp, color = Color(0xFF94A3B8))
+                                        Text("👋 Rekrut Operator Baru", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                                        Text("Upah Rp90.000/hari • Siap ditempatkan", fontSize = 10.5.sp, color = Slate600)
                                     }
-                                    Text(formatMoney(hireCost), fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
+                                    Text(formatMoney(hireCost), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MintEmeraldDark)
                                 }
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Button(
                                     onClick = {
                                         val names = listOf("Rudi", "Nurul", "Agus", "Wati")
                                         val nextName = names[engine.workerList.size % names.size]
                                         val success = onHireStaff(nextName, StationPhase.SETRIKA)
-                                        feedbackMessage = if (success) "Berhasil merekrut $nextName!" else "Kas tidak cukup!"
+                                        feedbackMessage = if (success) "✅ Berhasil merekrut $nextName!" else "⚠️ Kas tidak cukup!"
                                     },
                                     enabled = canHire,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0D9488)),
-                                    shape = RoundedCornerShape(8.dp),
-                                    modifier = Modifier.fillMaxWidth().height(34.dp)
+                                    colors = ButtonDefaults.buttonColors(containerColor = MintEmerald),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.fillMaxWidth().height(36.dp)
                                 ) {
-                                    Text("Rekrut Staf (Seragam & Onboarding)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Rekrut Staf Sekarang", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                                 }
                             }
                         }
@@ -177,7 +200,6 @@ fun LabExperimentModal(
     var testHireStaff by remember { mutableStateOf(false) }
     var testOvertime by remember { mutableStateOf(false) }
 
-    // Project 7 days comparison
     val baselineDailyRevenue = engine.maxDailyIntakeKgQuota * 9_000.0
     val baseline7DayRev = baselineDailyRevenue * 7.0
     val baseline7DayCost = (engine.workerList.size * 90_000.0 + 35_000.0) * 7.0
@@ -193,65 +215,64 @@ fun LabExperimentModal(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-            shape = RoundedCornerShape(16.dp),
-            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFFD97706))),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(22.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(LavenderTintBorder), width = 2.dp),
             modifier = Modifier.fillMaxWidth().testTag("lab_dialog")
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Header
+            Column(modifier = Modifier.padding(18.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🧪", fontSize = 18.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("🧪", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("LAB EKSPERIMEN", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFFDE68A))
-                            Text("Uji Keputusan Tanpa Risiko", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("LAB EKSPERIMEN SANDBOX", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = BerryLavender)
+                            Text("Simulasi Keputusan 7 Hari", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
                         }
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
-                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Color(0xFF94A3B8))
+                        Icon(imageVector = Icons.Default.Close, contentDescription = "Tutup", tint = Slate500)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                Text("PILIH SKENARIO PENGUJIAN:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF94A3B8))
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Toggle 1: Buy Dryer
-                LabToggleRow("Beli Dryer Gas (Rp9.5jt)", "Hilangkan resiko hujan & percepat alur", testBuyDryer) { testBuyDryer = it }
-                // Toggle 2: Hire staff
+                LabToggleRow("Beli Dryer Gas (Rp9.5jt)", "Hilangkan risiko hujan & percepat alur", testBuyDryer) { testBuyDryer = it }
                 LabToggleRow("Rekrut 1 Staf Setrika", "Atasi antrean setrika uap", testHireStaff) { testHireStaff = it }
-                // Toggle 3: Overtime
                 LabToggleRow("Jalankan Lembur 7 Hari", "Operasi ekstra untuk kejar pesanan", testOvertime) { testOvertime = it }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Comparison Box
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-                    shape = RoundedCornerShape(8.dp),
+                    colors = CardDefaults.cardColors(containerColor = LavenderTintBg.copy(alpha = 0.55f)),
+                    shape = RoundedCornerShape(14.dp),
+                    border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(LavenderTintBorder)),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Text("PROYEKSI 7 HARI KE DEPAN:", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF38BDF8))
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text("PROYEKSI LABA 7 HARI KE DEPAN:", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = BerryLavenderDark)
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Baseline (Kondisi Sekarang)", fontSize = 11.sp, color = Color(0xFF94A3B8))
-                            Text(formatMoney(baseline7DayProfit), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            Text("Kondisi Saat Ini", fontSize = 11.5.sp, color = Slate600)
+                            Text(formatMoney(baseline7DayProfit), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Slate900)
                         }
+                        Spacer(modifier = Modifier.height(3.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Setelah Keputusan Diuji", fontSize = 11.sp, color = Color(0xFFFDE68A))
-                            Text(formatMoney(exp7DayProfit), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = if (exp7DayProfit > baseline7DayProfit) Color(0xFF10B981) else Color(0xFFEF4444))
+                            Text("Setelah Keputusan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = BerryLavenderDark)
+                            Text(
+                                text = formatMoney(exp7DayProfit),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = if (exp7DayProfit >= baseline7DayProfit) MintEmeraldDark else CoralRose
+                            )
                         }
                         if (investCost > 0) {
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Pengeluaran Kas Awal: ${formatMoney(investCost)}", fontSize = 10.sp, color = Color(0xFFFCA5A5))
+                            Text("Modal Investasi Awal: ${formatMoney(investCost)}", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = CoralRoseDark)
                         }
                     }
                 }
@@ -261,19 +282,19 @@ fun LabExperimentModal(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
                         onClick = onDismiss,
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f).height(40.dp)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(42.dp)
                     ) {
-                        Text("Batal", fontSize = 12.sp, color = Color(0xFF94A3B8))
+                        Text("Batal", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate600)
                     }
 
                     Button(
                         onClick = { onApplyDecisionToActive(testBuyDryer, testHireStaff, testOvertime) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD97706)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1.5f).height(40.dp).testTag("btn_apply_lab")
+                        colors = ButtonDefaults.buttonColors(containerColor = BerryLavender),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1.5f).height(42.dp).testTag("btn_apply_lab")
                     ) {
-                        Text("Terapkan ke Usaha", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        Text("Terapkan ke Usaha", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                     }
                 }
             }
@@ -284,18 +305,23 @@ fun LabExperimentModal(
 @Composable
 private fun LabToggleRow(label: String, subtitle: String, isChecked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(Slate50)
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text(subtitle, fontSize = 9.sp, color = Color(0xFF94A3B8))
+            Text(label, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Slate900)
+            Text(subtitle, fontSize = 10.sp, color = Slate500)
         }
         Switch(
             checked = isChecked,
             onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(checkedThumbColor = Color(0xFFD97706))
+            colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = BerryLavender)
         )
     }
 }
@@ -308,52 +334,52 @@ fun OnboardingTutorialDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF1E293B)),
-            shape = RoundedCornerShape(16.dp),
-            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Color(0xFF38BDF8))),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(22.dp),
+            border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(SkyTintBorder), width = 2.dp),
             modifier = Modifier.fillMaxWidth().testTag("onboarding_dialog")
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.padding(20.dp)) {
                 Text(
                     text = "PANDUAN MULAI CEPAT (${step}/3)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = Color(0xFF38BDF8), letterSpacing = 1.sp)
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary, letterSpacing = 1.sp)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 when (step) {
                     1 -> {
-                        Text("1. Jalankan Waktu & Amati Aliran", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color.White))
+                        Text("1. Kelola Studio 3D & Kecepatan Waktu", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Usaha Anda dimulai dari skala rumahan (0–20 kg) dengan 1 mesin cuci, jemuran luar ruangan, meja setrika, 2 pekerja (Budi & Siti), dan kas modal Rp5.000.000. Gunakan tombol kecepatan [1x] [2x] [5x] untuk menjalankan waktu operasional.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFCBD5E1), lineHeight = 17.sp)
+                            "Amati alur laundry 3D isometrik Anda dari meja Masuk, Cuci, Jemur/Dryer, Setrika, Packing, hingga Selesai. Gunakan tombol kecepatan [1x] [2x] [5x] untuk mengatur waktu.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate600, lineHeight = 18.sp)
                         )
                     }
                     2 -> {
-                        Text("2. Ketuk Stasiun untuk Deteksi Hambatan", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color.White))
+                        Text("2. Ketuk Stasiun 3D untuk Tap-Boost & Upgrade", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Ketuk stasiun 3D (Cuci, Jemur, Setrika, Packing) untuk melihat antrean kg. Saat antrean memburuk, stasiun akan menyala merah. Ketukan membuka penjelasan konkret akar masalah dan solusi cepat.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFCBD5E1), lineHeight = 17.sp)
+                            "Ketuk langsung mesin 3D atau pilih nama stasiun di bagian bawah untuk mempercepat pekerjaan (+XP) sekaligus membuka panel penugasan staf.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate600, lineHeight = 18.sp)
                         )
                     }
                     3 -> {
-                        Text("3. Uji Keputusan & Kembangkan Usaha", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Color.White))
+                        Text("3. Sinkronkan ke Simulator Bisnis & ERP", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Gunakan tombol [Lab] untuk menguji pembelian Dryer gas, merekrut staf, atau lembur tanpa risiko. Tutup hari setiap sore untuk melihat laba bersih dan evaluasi sebab-akibat.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Color(0xFFCBD5E1), lineHeight = 17.sp)
+                            "Gunakan bar di bagian atas layar untuk berpindah ke Kalkulator BEP, Unit Economics, dan Simulator What-If kapan saja!",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate600, lineHeight = 18.sp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     if (step > 1) {
                         TextButton(onClick = { step-- }) {
-                            Text("Kembali", color = Color(0xFF94A3B8))
+                            Text("Kembali", color = Slate600, fontWeight = FontWeight.Bold)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
@@ -363,10 +389,10 @@ fun OnboardingTutorialDialog(
                         onClick = {
                             if (step < 3) step++ else onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
-                        shape = RoundedCornerShape(8.dp)
+                        colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
+                        shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text(if (step < 3) "Lanjut" else "Mulai Operasi!", fontWeight = FontWeight.Bold)
+                        Text(if (step < 3) "Lanjut" else "Mulai Sekarang!", fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }

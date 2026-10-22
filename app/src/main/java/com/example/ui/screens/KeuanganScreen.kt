@@ -1,19 +1,14 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +46,7 @@ fun KeuanganScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(Slate50)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(top = 12.dp, bottom = 96.dp)
@@ -141,7 +137,7 @@ fun KeuanganScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier
@@ -181,27 +177,27 @@ fun KeuanganScreen(
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Total Fixed Cost / Bulan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
-                    Text(formatRupiah(bep.monthlyFixedCost), fontWeight = FontWeight.Bold)
+                    Text(formatRupiah(bep.monthlyFixedCost), fontWeight = FontWeight.Bold, color = Slate900)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Contribution Margin / kg", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
-                    Text(formatRupiah(bep.contributionMarginPerKg), fontWeight = FontWeight.Bold)
+                    Text(formatRupiah(bep.contributionMarginPerKg), fontWeight = FontWeight.Bold, color = Slate900)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("BEP Volume Bulanan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
-                    Text("${bep.bepKgPerMonth.toInt()} kg/bulan", fontWeight = FontWeight.Bold)
+                    Text("${bep.bepKgPerMonth.toInt()} kg/bulan", fontWeight = FontWeight.Bold, color = Slate900)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("BEP Omzet Bulanan", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
-                    Text(formatRupiah(bep.bepOmzetMonthly), fontWeight = FontWeight.Bold)
+                    Text(formatRupiah(bep.bepOmzetMonthly), fontWeight = FontWeight.Bold, color = Slate900)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("Volume Aktual Hari Ini", style = MaterialTheme.typography.bodySmall.copy(color = Slate600))
-                    Text("${bep.actualKgPerDay.toInt()} kg/hari", fontWeight = FontWeight.Bold)
+                    Text("${bep.actualKgPerDay.toInt()} kg/hari", fontWeight = FontWeight.Bold, color = Slate900)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -229,7 +225,7 @@ fun KeuanganScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -258,7 +254,7 @@ fun KeuanganScreen(
                 CostBreakdownRow("Detergen, Softener & Parfum", "${formatRupiah(config.chemicalPerKg)}/kg")
                 CostBreakdownRow("Plastik Packing", "${formatRupiah(config.plasticPerKg)}/kg")
                 CostBreakdownRow("Gas Dryer & Lainnya", "${formatRupiah(config.gasAndOtherPerKg)}/kg")
-                CostBreakdownRow("Listrik & Air (Rata-rata/kg)", "${formatRupiah((config.electricityMonthlyBase + config.waterMonthlyBase) / (config.targetKgPerDay * 30.0))}/kg")
+                CostBreakdownRow("Listrik & Air (Rata-rata/kg)", "${formatRupiah((config.electricityMonthlyBase + config.waterMonthlyBase) / (config.targetKgPerDay * 30.0).coerceAtLeast(100.0))}/kg")
                 HorizontalDivider(color = Slate100, modifier = Modifier.padding(vertical = 4.dp))
                 CostBreakdownRow("Total Variable Cost", "${formatRupiah(config.variableCostPerKg)}/kg", isBold = true)
             }
@@ -278,7 +274,7 @@ fun KeuanganScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -328,7 +324,7 @@ fun KeuanganScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -355,7 +351,7 @@ fun UnitEcoCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp),
         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
         modifier = modifier

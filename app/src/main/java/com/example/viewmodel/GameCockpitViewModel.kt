@@ -2,6 +2,10 @@ package com.example.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.model.BusinessConfig
+import com.example.model.LaundryOrder
+import com.example.model.OrderStatus
+import com.example.model.ServiceType
 import com.example.sim.*
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,7 +32,8 @@ data class GameUiState(
     val isZeroLateStreakModalOpen: Boolean = false,
 
     val latestDayReport: DailySummaryReport? = null,
-    val currentTab: String = "COCKPIT" // COCKPIT, PIPELINE, TIM, KEUANGAN
+    val currentTab: String = "COCKPIT", // COCKPIT, PIPELINE, TIM, KEUANGAN
+    val stateRevision: Long = 0L // Ensures MutableStateFlow always emits on in-place engine mutations
 )
 
 class GameCockpitViewModel : ViewModel() {
@@ -41,6 +46,12 @@ class GameCockpitViewModel : ViewModel() {
     init {
         // Start simulation loop ticker
         startSimulationTicker()
+    }
+
+    private fun emitEngineUpdate(transform: (GameUiState) -> GameUiState = { it }) {
+        _uiState.update { current ->
+            transform(current).copy(stateRevision = current.stateRevision + 1L)
+        }
     }
 
     private fun startSimulationTicker() {
@@ -59,11 +70,10 @@ class GameCockpitViewModel : ViewModel() {
                     if (activeEngine.currentMinuteOfDay >= closeMinute) {
                         activeEngine.simSpeed = SimSpeed.PAUSED
                         val report = activeEngine.closeDayAndGenerateReport()
-                        _uiState.update { it.copy(isEveningSummaryOpen = true, latestDayReport = report) }
+                        emitEngineUpdate { it.copy(isEveningSummaryOpen = true, latestDayReport = report) }
+                    } else {
+                        emitEngineUpdate()
                     }
-
-                    // Trigger recomposition by updating state reference
-                    _uiState.update { it.copy() }
                 }
 
                 delay(400) // 400ms tick interval
@@ -76,16 +86,16 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.simSpeed = speed
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
     }
 
     // Station inspection
     fun selectStationPhase(phase: StationPhase) {
-        _uiState.update { it.copy(selectedPhase = phase, isStationInspectorOpen = true) }
+        emitEngineUpdate { it.copy(selectedPhase = phase, isStationInspectorOpen = true) }
     }
 
     fun closeStationInspector() {
-        _uiState.update { it.copy(isStationInspectorOpen = false, selectedPhase = null) }
+        emitEngineUpdate { it.copy(isStationInspectorOpen = false, selectedPhase = null) }
     }
 
     // Reassign worker
@@ -95,7 +105,7 @@ class GameCockpitViewModel : ViewModel() {
         val worker = activeEngine.workerList.find { it.id == workerId }
         if (worker != null) {
             worker.assignedPhase = newPhase
-            _uiState.update { it.copy() }
+            emitEngineUpdate()
         }
     }
 
@@ -107,7 +117,7 @@ class GameCockpitViewModel : ViewModel() {
         for (w in activeEngine.workerList) {
             w.isOvertime = activeEngine.isOvertimeActiveToday
         }
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
     }
 
     // Boosters
@@ -115,7 +125,7 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         val success = activeEngine.giveCoffeeBoost()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
         return success
     }
 
@@ -123,7 +133,7 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         val success = activeEngine.activateTurboWash()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
         return success
     }
 
@@ -131,7 +141,7 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         val success = activeEngine.triggerPromoFlyer()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
         return success
     }
 
@@ -139,24 +149,24 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         val success = activeEngine.claimQuest(questId)
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
         return success
     }
 
     // Shop actions
     fun openShop() {
-        _uiState.update { it.copy(isShopOpen = true) }
+        emitEngineUpdate { it.copy(isShopOpen = true) }
     }
 
     fun closeShop() {
-        _uiState.update { it.copy(isShopOpen = false) }
+        emitEngineUpdate { it.copy(isShopOpen = false) }
     }
 
     fun buyEquipment(assetType: AssetType): Boolean {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         val success = activeEngine.buyEquipment(assetType)
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
         return success
     }
 
@@ -164,7 +174,7 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         val success = activeEngine.hireWorker(name, phase)
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
         return success
     }
 
@@ -174,12 +184,12 @@ class GameCockpitViewModel : ViewModel() {
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.simSpeed = SimSpeed.PAUSED
         val report = activeEngine.closeDayAndGenerateReport()
-        _uiState.update { it.copy(isEveningSummaryOpen = true, latestDayReport = report) }
+        emitEngineUpdate { it.copy(isEveningSummaryOpen = true, latestDayReport = report) }
     }
 
     // Day Cycle Handlers
     fun startMorningPlanning() {
-        _uiState.update { it.copy(isMorningPlanningOpen = true) }
+        emitEngineUpdate { it.copy(isMorningPlanningOpen = true) }
     }
 
     fun confirmMorningPlan(maxQuotaKg: Double, isOvertime: Boolean) {
@@ -191,13 +201,13 @@ class GameCockpitViewModel : ViewModel() {
             w.isOvertime = isOvertime
         }
         activeEngine.simSpeed = SimSpeed.SPEED_1X
-        _uiState.update { it.copy(isMorningPlanningOpen = false) }
+        emitEngineUpdate { it.copy(isMorningPlanningOpen = false) }
     }
 
     fun continueToNextDay() {
         val state = _uiState.value
         state.engine.startNextDay()
-        _uiState.update {
+        emitEngineUpdate {
             it.copy(
                 isEveningSummaryOpen = false,
                 isMorningPlanningOpen = true
@@ -207,20 +217,20 @@ class GameCockpitViewModel : ViewModel() {
 
     // Lab Mode Sandbox
     fun openLabModal() {
-        _uiState.update { it.copy(isLabModalOpen = true) }
+        emitEngineUpdate { it.copy(isLabModalOpen = true) }
     }
 
     fun closeLabModal() {
-        _uiState.update { it.copy(isLabModalOpen = false) }
+        emitEngineUpdate { it.copy(isLabModalOpen = false) }
     }
 
     fun enterLabMode() {
         val clone = _uiState.value.engine.cloneForLab()
-        _uiState.update { it.copy(labEngine = clone, isLabModeActive = true) }
+        emitEngineUpdate { it.copy(labEngine = clone, isLabModeActive = true) }
     }
 
     fun exitLabMode() {
-        _uiState.update { it.copy(labEngine = null, isLabModeActive = false) }
+        emitEngineUpdate { it.copy(labEngine = null, isLabModeActive = false) }
     }
 
     fun applyLabDecisionToActive(dryerBought: Boolean, staffHired: Boolean, extraOvertime: Boolean) {
@@ -235,7 +245,7 @@ class GameCockpitViewModel : ViewModel() {
             engine.isOvertimeActiveToday = true
             for (w in engine.workerList) w.isOvertime = true
         }
-        _uiState.update {
+        emitEngineUpdate {
             it.copy(
                 labEngine = null,
                 isLabModeActive = false,
@@ -245,15 +255,15 @@ class GameCockpitViewModel : ViewModel() {
     }
 
     fun closeOnboarding() {
-        _uiState.update { it.copy(isOnboardingOpen = false) }
+        emitEngineUpdate { it.copy(isOnboardingOpen = false) }
     }
 
     fun openOnboarding() {
-        _uiState.update { it.copy(isOnboardingOpen = true) }
+        emitEngineUpdate { it.copy(isOnboardingOpen = true) }
     }
 
     fun setBottomTab(tab: String) {
-        _uiState.update { it.copy(currentTab = tab) }
+        emitEngineUpdate { it.copy(currentTab = tab) }
     }
 
     // Laundry Experience Handlers
@@ -261,42 +271,115 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.interactWithStation(phase)
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
     }
 
     fun claimLevelUp() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.claimLevelUp()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
     }
 
     fun dismissStreakCelebration() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.dismissStreakCelebration()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
     }
 
     fun triggerTestLevelUp() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.triggerTestLevelUp()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
+    }
+
+    fun triggerTestStreak() {
+        val state = _uiState.value
+        val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
+        activeEngine.triggerTestStreak()
+        emitEngineUpdate()
     }
 
     fun openZeroLateStreakModal() {
-        _uiState.update { it.copy(isZeroLateStreakModalOpen = true) }
+        emitEngineUpdate { it.copy(isZeroLateStreakModalOpen = true) }
     }
 
     fun closeZeroLateStreakModal() {
-        _uiState.update { it.copy(isZeroLateStreakModalOpen = false) }
+        emitEngineUpdate { it.copy(isZeroLateStreakModalOpen = false) }
     }
 
     fun claimVisualSatisfactionBonus() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.claimVisualSatisfactionBonus()
-        _uiState.update { it.copy() }
+        emitEngineUpdate()
+    }
+
+    /**
+     * Converts the live 3D Tycoon SimulationEngine state into a BusinessConfig
+     * so the user can seamlessly analyze their 3D game laundry in the ERP Business Simulator.
+     */
+    fun toBusinessConfig(): BusinessConfig {
+        val state = _uiState.value
+        val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
+        val washers = activeEngine.equipmentList.filter { it.type == AssetType.MESIN_CUCI_7KG || it.type == AssetType.MESIN_CUCI_14KG }
+        val dryers = activeEngine.equipmentList.filter { it.type == AssetType.DRYER_GAS_10KG }
+        val irons = activeEngine.equipmentList.filter { it.type == AssetType.SETRIKA_LISTRIK || it.type == AssetType.SETRIKA_UAP_BOILER }
+
+        val avgWashCap = if (washers.isNotEmpty()) washers.map { it.capacityKg }.average() else 7.0
+        val avgWashCycle = if (washers.isNotEmpty()) washers.map { it.cycleMinutes.toDouble() }.average() else 45.0
+        val hasBoiler = irons.any { it.type == AssetType.SETRIKA_UAP_BOILER }
+
+        return BusinessConfig(
+            businessName = "${activeEngine.growthTier.title} (Lv.${activeEngine.tycoonLevel})",
+            regularPricePerKg = 9_000.0,
+            expressPricePerKg = 15_000.0,
+            targetKgPerDay = activeEngine.growthTier.maxDailyCapacityTargetKg,
+            operatingHoursPerDay = if (activeEngine.isOvertimeActiveToday) 12.0 else 10.0,
+            operatingEfficiency = 0.80,
+            washingMachineCount = washers.size.coerceAtLeast(1),
+            washingCapacityPerMachineKg = avgWashCap,
+            washingCycleDurationMinutes = avgWashCycle,
+            dryerCount = dryers.size,
+            dryerCapacityPerMachineKg = 10.0,
+            dryerCycleDurationMinutes = 45.0,
+            ironCount = irons.size.coerceAtLeast(1),
+            ironCapacityPerUnitPerHourKg = if (hasBoiler) 15.0 else 8.0,
+            staffCount = activeEngine.workerList.size.coerceAtLeast(1),
+            salaryPerStaffMonthly = 2_700_000.0,
+            initialCash = activeEngine.cash.coerceAtLeast(500_000.0)
+        )
+    }
+
+    /**
+     * Maps live 3D simulation orders into ERP LaundryOrder items.
+     */
+    fun toBusinessOrders(): List<LaundryOrder> {
+        val state = _uiState.value
+        val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
+        return activeEngine.ordersList.map { simOrder ->
+            val mappedStatus = when (simOrder.currentPhase) {
+                StationPhase.MASUK -> OrderStatus.MASUK
+                StationPhase.CUCI -> OrderStatus.CUCI
+                StationPhase.JEMUR_KERING -> OrderStatus.KERING
+                StationPhase.SETRIKA -> OrderStatus.SETRIKA
+                StationPhase.PACKING -> OrderStatus.PACKING
+                StationPhase.SELESAI -> if (simOrder.isDelivered) OrderStatus.DIAMBIL else OrderStatus.SELESAI
+            }
+            val service = if (simOrder.isExpress) ServiceType.EXPRESS else ServiceType.REGULER
+            val pricePerKg = if (simOrder.isExpress) 15_000.0 else 9_000.0
+            LaundryOrder(
+                id = simOrder.id,
+                customerName = simOrder.customerName,
+                serviceType = service,
+                weightKg = simOrder.weightKg,
+                pricePerKg = pricePerKg,
+                totalPrice = simOrder.priceTotal,
+                deadline = if (simOrder.deadlineDay <= activeEngine.currentDay) "Hari ini" else "Besok",
+                status = mappedStatus
+            )
+        }
     }
 }

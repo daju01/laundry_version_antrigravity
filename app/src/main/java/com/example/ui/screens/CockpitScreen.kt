@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -49,6 +48,7 @@ fun CockpitScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
+            .background(Slate50)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(top = 12.dp, bottom = 96.dp)
@@ -199,7 +199,7 @@ fun CockpitScreen(
 
         // Kapasitas Terpakai Bar Card
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(12.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()
@@ -269,7 +269,7 @@ fun CockpitScreen(
         Spacer(modifier = Modifier.height(8.dp))
 
         Card(
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
             shape = RoundedCornerShape(14.dp),
             border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
             modifier = Modifier.fillMaxWidth()

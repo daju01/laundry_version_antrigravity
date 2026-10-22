@@ -35,6 +35,8 @@ class SimulationEngine(
     var latestCompletionFeedback: TaskCompletionFeedback? = null
     var pendingLevelUp: LevelUpCelebration? = null
     var pendingStreakCelebration: StreakCelebration? = null
+    var lastInteractionTimestamp: Long = 0L
+    var lastInteractedPhase: StationPhase? = null
 
     // Business Balance & Reputation
     var cash: Double = 5_000_000.0 // Rp 5 juta modal pengembangan awal
@@ -256,6 +258,7 @@ class SimulationEngine(
                 washer.remainingMinutesInCycle--
                 if (washer.remainingMinutesInCycle <= 0) {
                     washer.isRunning = false
+                    washer.currentBatchWeightKg = 0.0
                     operationalExpensesToday += 2_500.0
                     onTaskCompleted("🫧 Cuci Selesai!", "Batch siap dikeringkan", 12, phase = StationPhase.CUCI)
                 }
@@ -267,10 +270,12 @@ class SimulationEngine(
                 if (!washer.isRunning) {
                     val nextBatch = cuciOrders.filter { it.minutesInCurrentPhase == 0 }.take(1)
                     if (nextBatch.isNotEmpty()) {
+                        val batchOrder = nextBatch.first()
                         washer.isRunning = true
                         washer.remainingMinutesInCycle = washer.cycleMinutes
-                        washer.currentBatchWeightKg = nextBatch.first().weightKg
-                        nextBatch.first().minutesInCurrentPhase = 1
+                        washer.currentBatchWeightKg = batchOrder.weightKg
+                        batchOrder.requiredMinutesInPhase = washer.cycleMinutes
+                        batchOrder.minutesInCurrentPhase = 1
                     }
                 }
             }
@@ -279,7 +284,8 @@ class SimulationEngine(
         for (order in cuciOrders) {
             if (order.minutesInCurrentPhase > 0) {
                 order.minutesInCurrentPhase++
-                if (order.minutesInCurrentPhase >= 40) {
+                val targetWashMins = order.requiredMinutesInPhase.coerceIn(20, 45)
+                if (order.minutesInCurrentPhase >= targetWashMins) {
                     order.currentPhase = StationPhase.JEMUR_KERING
                     order.minutesInCurrentPhase = 0
                 }
@@ -369,6 +375,9 @@ class SimulationEngine(
                     activeQuests.find { it.id == "Q-1" }?.let { q ->
                         q.currentProgress = min(q.targetAmount, q.currentProgress + order.weightKg)
                     }
+                    activeQuests.find { it.id == "Q-3" }?.let { q ->
+                        q.currentProgress = reputationStars
+                    }
                 }
             }
         }
@@ -441,11 +450,27 @@ class SimulationEngine(
     }
 
     fun interactWithStation(phase: StationPhase) {
-        // Boost operations slightly and award XP with lively visual feedback
+        lastInteractionTimestamp = System.currentTimeMillis()
+        lastInteractedPhase = phase
+        // Boost operations across all stations and award XP with lively visual & audio feedback
+        com.example.audio.GameSoundManager.playTapBoost()
         when (phase) {
+            StationPhase.MASUK -> {
+                ordersList.firstOrNull { it.currentPhase == StationPhase.MASUK }?.let {
+                    it.minutesInCurrentPhase += 4
+                }
+            }
             StationPhase.CUCI -> {
                 equipmentList.firstOrNull { it.isRunning }?.let {
                     it.remainingMinutesInCycle = max(1, it.remainingMinutesInCycle - 3)
+                }
+                ordersList.firstOrNull { it.currentPhase == StationPhase.CUCI && it.minutesInCurrentPhase > 0 }?.let {
+                    it.minutesInCurrentPhase += 3
+                }
+            }
+            StationPhase.JEMUR_KERING -> {
+                ordersList.firstOrNull { it.currentPhase == StationPhase.JEMUR_KERING }?.let {
+                    it.minutesInCurrentPhase += 10
                 }
             }
             StationPhase.SETRIKA -> {
@@ -458,7 +483,10 @@ class SimulationEngine(
                     it.minutesInCurrentPhase += 3
                 }
             }
-            else -> {}
+            StationPhase.SELESAI -> {
+                // Collect any unpaid finished order or boost reputation slightly
+                reputationStars = (reputationStars + 0.01).coerceAtMost(5.0)
+            }
         }
         onTaskCompleted(
             title = "⚡ Dibantu Pemilik!",
@@ -469,10 +497,23 @@ class SimulationEngine(
         addParticle("⚡ Tap Boost! +8 XP ⭐", 0xFFFBBF24, 0.5f, 0.5f)
     }
 
+    fun getPhaseProgressFraction(phase: StationPhase): Float {
+        val phaseOrders = ordersList.filter { it.currentPhase == phase }
+        if (phaseOrders.isEmpty()) return 0f
+        val activeOrder = phaseOrders.firstOrNull { it.minutesInCurrentPhase > 0 } ?: phaseOrders.first()
+        val totalReq = max(1, activeOrder.requiredMinutesInPhase)
+        return (activeOrder.minutesInCurrentPhase.toFloat() / totalReq.toFloat()).coerceIn(0f, 1f)
+    }
+
     fun addXp(amount: Int) {
+        if (amount <= 0) return
         currentXp += amount
-        val nextTier = GrowthTier.values().firstOrNull { it.levelNumber == tycoonLevel + 1 }
-        if (nextTier != null && currentXp >= nextTier.requiredXp) {
+
+        // Loop to support multi-level jumps if a large XP grant crosses multiple thresholds
+        while (true) {
+            val nextTier = GrowthTier.values().firstOrNull { it.levelNumber == tycoonLevel + 1 }
+            if (nextTier == null || currentXp < nextTier.requiredXp) break
+
             val oldLevel = tycoonLevel
             val oldTier = growthTier
             val oldCap = growthTier.maxDailyCapacityTargetKg
@@ -557,11 +598,29 @@ class SimulationEngine(
         }
     }
 
+    fun triggerTestStreak() {
+        currentStreak++
+        if (currentStreak > highestStreak) highestStreak = currentStreak
+        val bonusCash = currentStreak * 75_000.0
+        val bonusXp = currentStreak * 30
+        cash += bonusCash
+        addXp(bonusXp)
+        pendingStreakCelebration = StreakCelebration(
+            streakDays = currentStreak,
+            bonusCash = bonusCash,
+            bonusXp = bonusXp,
+            title = "🔥 HARI EFISIEN BERTURUT-TURUT!",
+            multiplierPercent = (currentStreak * 10).coerceAtMost(50)
+        )
+        addParticle("🔥 STREAK ${currentStreak}x! +${formatMoneyCompact(bonusCash)}", 0xFFF59E0B, 0.5f, 0.35f)
+    }
+
     // TYCOON GAME BOOSTERS
     fun giveCoffeeBoost(): Boolean {
         val cost = 25_000.0
         if (cash < cost) return false
         cash -= cost
+        operationalExpensesToday += cost
         for (w in workerList) {
             w.energyPercent = 100
             w.moodEmoji = "⚡"
@@ -577,6 +636,9 @@ class SimulationEngine(
                 eq.remainingMinutesInCycle = max(1, eq.remainingMinutesInCycle / 2)
             }
         }
+        for (ord in ordersList.filter { it.currentPhase == StationPhase.CUCI && it.minutesInCurrentPhase > 0 }) {
+            ord.minutesInCurrentPhase = max(ord.minutesInCurrentPhase, ord.requiredMinutesInPhase / 2)
+        }
         addParticle("⚡ TURBO WASH AKTIF!", 0xFF38BDF8, 0.22f, 0.30f)
         return true
     }
@@ -585,6 +647,7 @@ class SimulationEngine(
         val cost = 40_000.0
         if (cash < cost) return false
         cash -= cost
+        operationalExpensesToday += cost
         spawnCustomerOrder()
         spawnCustomerOrder()
         addParticle("📢 BROSUR SEBAR! +2 Order", 0xFF10B981, 0.22f, 0.70f)
@@ -640,6 +703,7 @@ class SimulationEngine(
         cash += bonusCashReward
         addXp(30 * zeroLateStreakDays.coerceAtLeast(1))
         reputationStars = (reputationStars + 0.05).coerceAtMost(5.0)
+        activeQuests.find { it.id == "Q-3" }?.let { it.currentProgress = reputationStars }
 
         addParticle("✨ PUAS MAKSIMAL! +${formatMoneyCompact(bonusCashReward)} 🪙", 0xFF10B981, 0.5f, 0.35f)
         addParticle("⭐ Rating Konsumen ⭐ 5.0", 0xFFF59E0B, 0.52f, 0.45f)
@@ -856,6 +920,7 @@ class SimulationEngine(
         lab.weatherToday = this.weatherToday
         lab.cash = this.cash
         lab.reputationStars = this.reputationStars
+        lab.repeatCustomerRatePercent = this.repeatCustomerRatePercent
         lab.growthTier = this.growthTier
         lab.currentXp = this.currentXp
         lab.tycoonLevel = this.tycoonLevel
@@ -869,6 +934,11 @@ class SimulationEngine(
         lab.maxDailyIntakeKgQuota = this.maxDailyIntakeKgQuota
         lab.isAcceptingNewOrdersToday = this.isAcceptingNewOrdersToday
         lab.isOvertimeActiveToday = this.isOvertimeActiveToday
+        lab.revenueCollectedToday = this.revenueCollectedToday
+        lab.operationalExpensesToday = this.operationalExpensesToday
+        lab.completedOrdersCountToday = this.completedOrdersCountToday
+        lab.completedKgToday = this.completedKgToday
+        lab.reworkCountToday = this.reworkCountToday
 
         lab.equipmentList.clear()
         this.equipmentList.forEach { lab.equipmentList.add(it.copy()) }
@@ -878,6 +948,9 @@ class SimulationEngine(
 
         lab.ordersList.clear()
         this.ordersList.forEach { lab.ordersList.add(it.copy()) }
+
+        lab.activeQuests.clear()
+        this.activeQuests.forEach { lab.activeQuests.add(it.copy()) }
 
         lab.simSpeed = SimSpeed.SPEED_1X
         return lab

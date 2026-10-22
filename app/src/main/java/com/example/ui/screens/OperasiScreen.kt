@@ -1,12 +1,10 @@
 package com.example.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,6 +51,7 @@ fun OperasiScreen(
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
+            .background(Slate50)
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
     ) {
@@ -208,7 +207,7 @@ fun OperasiScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(14.dp),
                 border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
                 modifier = Modifier.fillMaxWidth()
@@ -304,7 +303,7 @@ fun OperasiScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(14.dp),
                 border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
                 modifier = Modifier.fillMaxWidth()
@@ -356,7 +355,7 @@ fun OperasiScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(14.dp),
                 border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
                 modifier = Modifier.fillMaxWidth()
@@ -364,7 +363,6 @@ fun OperasiScreen(
                 Column(modifier = Modifier.padding(14.dp)) {
                     val actualDailyKg = state.orders.filter { it.status != OrderStatus.DIAMBIL }.sumOf { it.weightKg }
                     val kgPerStaff = if (config.staffCount > 0) actualDailyKg / config.staffCount else 0.0
-                    val omzetPerStaff = if (config.staffCount > 0) (actualDailyKg * config.regularPricePerKg) / config.staffCount else 0.0
                     val laborCostPerKg = if (actualDailyKg > 0) (config.totalStaffCostMonthly / 30.0) / actualDailyKg else 0.0
 
                     Row(
@@ -607,7 +605,7 @@ fun OrderCardItem(
     onDelete: () -> Unit
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(12.dp),
         border = CardDefaults.outlinedCardBorder().copy(brush = androidx.compose.ui.graphics.SolidColor(Slate200)),
         modifier = Modifier.fillMaxWidth()
@@ -670,7 +668,7 @@ fun OrderCardItem(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Status Progress Bar & Action Button
+            // Status Progress Bar & Action Buttons (Advance & Delete)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -692,30 +690,44 @@ fun OrderCardItem(
                     )
                 }
 
-                // Next Step Button
-                if (order.status.nextStatus() != null) {
-                    Button(
-                        onClick = onAdvance,
-                        colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(34.dp)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp).testTag("btn_delete_${order.id}")
                     ) {
-                        Text("Lanjut: ${order.status.nextStatus()?.label}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(12.dp))
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(SuccessGreenBg)
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "Lunas / Selesai",
-                            style = MaterialTheme.typography.labelSmall.copy(color = SuccessGreen, fontWeight = FontWeight.Bold)
+                        Icon(
+                            imageVector = Icons.Default.DeleteOutline,
+                            contentDescription = "Hapus Order",
+                            tint = Slate400,
+                            modifier = Modifier.size(18.dp)
                         )
+                    }
+
+                    // Next Step Button
+                    if (order.status.nextStatus() != null) {
+                        Button(
+                            onClick = onAdvance,
+                            colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.height(34.dp)
+                        ) {
+                            Text("Lanjut: ${order.status.nextStatus()?.label}", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(12.dp))
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(SuccessGreenBg)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "Lunas / Selesai",
+                                style = MaterialTheme.typography.labelSmall.copy(color = SuccessGreen, fontWeight = FontWeight.Bold)
+                            )
+                        }
                     }
                 }
             }

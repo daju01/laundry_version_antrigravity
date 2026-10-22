@@ -16,7 +16,7 @@ fun formatRupiahCompact(amount: Double): String {
         absVal >= 1_000_000_000 -> "$sign${String.format(Locale("id", "ID"), "%.1f", absVal / 1_000_000_000)} M"
         absVal >= 1_000_000 -> "$sign${String.format(Locale("id", "ID"), "%.1f", absVal / 1_000_000)} jt"
         absVal >= 1_000 -> "$sign${String.format(Locale("id", "ID"), "%.0f", absVal / 1_000)} rb"
-        else -> "$sign${amount.toLong()}"
+        else -> "$sign${kotlin.math.abs(amount).toLong()}"
     }
 }
 
@@ -79,62 +79,69 @@ data class BusinessConfig(
     val targetKgPerDay: Double = 120.0,
     val operatingHoursPerDay: Double = 12.0,
     val operatingEfficiency: Double = 0.80, // 80% practical factor
-    
+
     // Mesin Cuci
     val washingMachineCount: Int = 3,
     val washingCapacityPerMachineKg: Double = 10.0,
     val washingCycleDurationMinutes: Double = 45.0,
-    
+
     // Dryer
     val dryerCount: Int = 2,
     val dryerCapacityPerMachineKg: Double = 10.0,
     val dryerCycleDurationMinutes: Double = 45.0,
-    
+
     // Setrika
     val ironCount: Int = 2,
     val ironCapacityPerUnitPerHourKg: Double = 10.0,
-    
+
     // Karyawan
     val staffCount: Int = 4,
     val salaryPerStaffMonthly: Double = 3_000_000.0,
-    
+
     // Fixed Costs (Monthly)
     val rentMonthly: Double = 6_000_000.0,
     val internetSoftwareMonthly: Double = 500_000.0,
     val depreciationMonthly: Double = 1_000_000.0,
     val adminOtherMonthly: Double = 500_000.0,
-    
+
     // Variable Costs
     val electricityMonthlyBase: Double = 3_500_000.0,
     val waterMonthlyBase: Double = 1_500_000.0,
     val chemicalPerKg: Double = 1_200.0, // Detergen, softener, parfum
     val plasticPerKg: Double = 600.0,
     val gasAndOtherPerKg: Double = 800.0,
-    
+
     // Initial Working Capital / Cash
     val initialCash: Double = 25_000_000.0
 ) {
-    val totalStaffCostMonthly: Double get() = staffCount * salaryPerStaffMonthly
+    val safeOperatingHours: Double get() = operatingHoursPerDay.coerceIn(1.0, 24.0)
+    val safeEfficiency: Double get() = operatingEfficiency.coerceIn(0.10, 1.0)
+
+    val totalStaffCostMonthly: Double get() = staffCount.coerceAtLeast(0) * salaryPerStaffMonthly.coerceAtLeast(0.0)
     val totalPureFixedCostMonthly: Double get() = rentMonthly + totalStaffCostMonthly + internetSoftwareMonthly + depreciationMonthly + adminOtherMonthly
-    
+
     // Variable cost breakdown per kg (chemical + plastic + gas + variable utilities)
-    val variableCostPerKg: Double get() = chemicalPerKg + plasticPerKg + gasAndOtherPerKg + 
+    val variableCostPerKg: Double get() = chemicalPerKg + plasticPerKg + gasAndOtherPerKg +
             ((electricityMonthlyBase + waterMonthlyBase) / (targetKgPerDay * 30.0).coerceAtLeast(100.0))
 
-    // Theoretical & Practical Capacities
-    val washingCyclesPerDay: Double get() = (operatingHoursPerDay * 60.0) / washingCycleDurationMinutes
-    val washingTheoreticalCapacityKg: Double get() = washingMachineCount * washingCapacityPerMachineKg * washingCyclesPerDay
-    val washingPracticalCapacityKg: Double get() = washingTheoreticalCapacityKg * operatingEfficiency
+    // Theoretical & Practical Capacities (guarded against division by zero)
+    val washingCyclesPerDay: Double get() = (safeOperatingHours * 60.0) / washingCycleDurationMinutes.coerceAtLeast(1.0)
+    val washingTheoreticalCapacityKg: Double get() = washingMachineCount.coerceAtLeast(0) * washingCapacityPerMachineKg.coerceAtLeast(0.0) * washingCyclesPerDay
+    val washingPracticalCapacityKg: Double get() = washingTheoreticalCapacityKg * safeEfficiency
 
-    val dryerCyclesPerDay: Double get() = (operatingHoursPerDay * 60.0) / dryerCycleDurationMinutes
-    val dryerTheoreticalCapacityKg: Double get() = dryerCount * dryerCapacityPerMachineKg * dryerCyclesPerDay
-    val dryerPracticalCapacityKg: Double get() = dryerTheoreticalCapacityKg * operatingEfficiency
+    val dryerCyclesPerDay: Double get() = (safeOperatingHours * 60.0) / dryerCycleDurationMinutes.coerceAtLeast(1.0)
+    val dryerTheoreticalCapacityKg: Double get() = dryerCount.coerceAtLeast(0) * dryerCapacityPerMachineKg.coerceAtLeast(0.0) * dryerCyclesPerDay
+    val dryerPracticalCapacityKg: Double get() = dryerTheoreticalCapacityKg * safeEfficiency
 
-    val ironTheoreticalCapacityKg: Double get() = ironCount * ironCapacityPerUnitPerHourKg * operatingHoursPerDay
-    val ironPracticalCapacityKg: Double get() = ironTheoreticalCapacityKg * operatingEfficiency
+    val ironTheoreticalCapacityKg: Double get() = ironCount.coerceAtLeast(0) * ironCapacityPerUnitPerHourKg.coerceAtLeast(0.0) * safeOperatingHours
+    val ironPracticalCapacityKg: Double get() = ironTheoreticalCapacityKg * safeEfficiency
 
     // Overall max capacity is limited by the bottleneck stage
-    val maxDailyPracticalCapacityKg: Double get() = minOf(washingPracticalCapacityKg, dryerPracticalCapacityKg, ironPracticalCapacityKg)
+    val maxDailyPracticalCapacityKg: Double get() = minOf(
+        washingPracticalCapacityKg.coerceAtLeast(1.0),
+        if (dryerCount > 0) dryerPracticalCapacityKg.coerceAtLeast(1.0) else washingPracticalCapacityKg.coerceAtLeast(1.0),
+        ironPracticalCapacityKg.coerceAtLeast(1.0)
+    )
 }
 
 enum class HealthStatus {

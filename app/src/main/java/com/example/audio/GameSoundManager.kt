@@ -10,7 +10,11 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
@@ -22,7 +26,8 @@ import kotlin.math.sin
  */
 object GameSoundManager {
 
-    private val scope = CoroutineScope(Dispatchers.Default)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val audioTrackSemaphore = Semaphore(4)
     private const val SAMPLE_RATE = 44100
 
     @Volatile
@@ -92,8 +97,8 @@ object GameSoundManager {
                     }
                 }
 
-                playBuffer(buffer)
                 triggerHapticPattern(longArrayOf(0, 70, 60, 90, 80, 200))
+                playBuffer(buffer)
             } catch (_: Throwable) {
                 // Audio gracefully handled
             }
@@ -128,8 +133,8 @@ object GameSoundManager {
                     buffer[i] = (wave * env * 14000f).toInt().coerceIn(-32767, 32767).toShort()
                 }
 
-                playBuffer(buffer)
                 triggerHapticPattern(longArrayOf(0, 40, 50, 80))
+                playBuffer(buffer)
             } catch (_: Throwable) {
                 // Graceful fallback
             }
@@ -169,8 +174,8 @@ object GameSoundManager {
                     }
                 }
 
-                playBuffer(buffer)
                 triggerHapticPattern(longArrayOf(0, 40, 50, 60))
+                playBuffer(buffer)
             } catch (_: Throwable) {
                 // Graceful fallback
             }
@@ -213,41 +218,71 @@ object GameSoundManager {
         }
     }
 
-    private fun playBuffer(buffer: ShortArray) {
-        var track: AudioTrack? = null
-        try {
-            val bufferSize = buffer.size * 2
-            val attributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_GAME)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-
-            val format = AudioFormat.Builder()
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .setSampleRate(SAMPLE_RATE)
-                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                .build()
-
-            track = AudioTrack.Builder()
-                .setAudioAttributes(attributes)
-                .setAudioFormat(format)
-                .setBufferSizeInBytes(bufferSize)
-                .setTransferMode(AudioTrack.MODE_STATIC)
-                .build()
-
-            track.write(buffer, 0, buffer.size)
-            track.play()
-
-            // Wait until played before releasing
-            val sleepMs = ((buffer.size.toFloat() / SAMPLE_RATE) * 1000).toLong() + 100
-            Thread.sleep(sleepMs)
-        } catch (_: Throwable) {
-            // Audio output device handled safely
-        } finally {
+    /**
+     * Crisp tactile pop sound for station tap boost interactions.
+     */
+    fun playTapBoost() {
+        if (!isSoundEnabled) return
+        scope.launch {
             try {
-                track?.stop()
-                track?.release()
-            } catch (_: Throwable) {}
+                val durSec = 0.14f
+                val totalSamples = (SAMPLE_RATE * durSec).toInt()
+                val buffer = ShortArray(totalSamples)
+
+                for (i in 0 until totalSamples) {
+                    val t = i.toFloat() / SAMPLE_RATE
+                    val prog = i.toFloat() / totalSamples
+                    val freq = 580f + (320f * prog)
+                    val env = exp(-12.0f * prog)
+                    val sample = sin(2.0 * PI * freq * t).toFloat() * env * 0.35f
+                    buffer[i] = (sample * 16000).toInt().coerceIn(-32767, 32767).toShort()
+                }
+
+                triggerHapticPattern(longArrayOf(0, 20))
+                playBuffer(buffer)
+            } catch (_: Throwable) {
+                // Graceful fallback
+            }
+        }
+    }
+
+    private suspend fun playBuffer(buffer: ShortArray) {
+        audioTrackSemaphore.withPermit {
+            var track: AudioTrack? = null
+            try {
+                val bufferSize = buffer.size * 2
+                val attributes = AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build()
+
+                val format = AudioFormat.Builder()
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build()
+
+                track = AudioTrack.Builder()
+                    .setAudioAttributes(attributes)
+                    .setAudioFormat(format)
+                    .setBufferSizeInBytes(bufferSize)
+                    .setTransferMode(AudioTrack.MODE_STATIC)
+                    .build()
+
+                track.write(buffer, 0, buffer.size)
+                track.play()
+
+                // Non-blocking coroutine suspension instead of blocking Thread.sleep
+                val sleepMs = ((buffer.size.toFloat() / SAMPLE_RATE) * 1000).toLong() + 80L
+                delay(sleepMs)
+            } catch (_: Throwable) {
+                // Audio output device handled safely
+            } finally {
+                try {
+                    track?.stop()
+                    track?.release()
+                } catch (_: Throwable) {}
+            }
         }
     }
 
