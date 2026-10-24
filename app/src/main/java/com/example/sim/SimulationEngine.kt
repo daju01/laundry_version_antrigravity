@@ -162,11 +162,23 @@ class SimulationEngine(
     }
 
     /**
+     * Returns 0f..1f representing how far along the current workday is (08:00 to 18:00 / 20:00).
+     */
+    fun getWorkdayProgressFraction(): Float {
+        val closeMinute = if (isOvertimeActiveToday) overtimeCloseWorkMinute else normalCloseWorkMinute
+        val totalSpan = (closeMinute - startWorkMinute).coerceAtLeast(1)
+        return ((currentMinuteOfDay - startWorkMinute).toFloat() / totalSpan.toFloat()).coerceIn(0f, 1f)
+    }
+
+    /**
      * Returns a 0f..1f progress fraction for the active batch at a given station phase,
      * used to render live 3D progress bars and active station animations.
      */
     fun getPhaseProgressFraction(phase: StationPhase): Float {
-        val order = ordersList.firstOrNull { it.currentPhase == phase && !it.isDelivered } ?: return 0f
+        val order = ordersList
+            .filter { it.currentPhase == phase && !it.isDelivered }
+            .maxByOrNull { it.minutesInCurrentPhase }
+            ?: return 0f
         val hasGasDryer = equipmentList.any { it.type == AssetType.DRYER_GAS_10KG }
         val hasBoiler = equipmentList.any { it.type == AssetType.SETRIKA_UAP_BOILER }
         val req = when (phase) {
@@ -286,7 +298,7 @@ class SimulationEngine(
             }
         }
 
-        if (cuciWorkers.isNotEmpty() && inWorkTime) {
+        if ((cuciWorkers.isNotEmpty() || workerList.isNotEmpty()) && inWorkTime) {
             for (washer in availableWashers) {
                 if (!washer.isRunning) {
                     val nextBatch = cuciOrders.filter { it.minutesInCurrentPhase == 0 }.take(1)
@@ -302,9 +314,10 @@ class SimulationEngine(
             }
         }
 
+        val washBonusStep = if (cuciWorkers.size >= 2) 2 else 1
         for (order in cuciOrders) {
             if (order.minutesInCurrentPhase > 0) {
-                order.minutesInCurrentPhase++
+                order.minutesInCurrentPhase += washBonusStep
                 val targetWashMins = order.requiredMinutesInPhase.coerceIn(20, 45)
                 if (order.minutesInCurrentPhase >= targetWashMins) {
                     order.currentPhase = StationPhase.JEMUR_KERING
@@ -331,19 +344,28 @@ class SimulationEngine(
             }
         }
 
-        // 4. SETRIKA
+        // 4. SETRIKA (Never deadlocks: uses roaming/owner assist if 0 dedicated staff assigned)
         val setrikaOrders = ordersList.filter { it.currentPhase == StationPhase.SETRIKA }
         val setrikaWorkers = workerList.filter { it.assignedPhase == StationPhase.SETRIKA }
         val hasBoiler = equipmentList.any { it.type == AssetType.SETRIKA_UAP_BOILER }
 
-        if (setrikaWorkers.isNotEmpty() && inWorkTime) {
-            val speedFactor = (if (hasBoiler) 1.6 else 1.0) * setrikaWorkers.sumOf { it.speedMultiplier }
+        if ((setrikaWorkers.isNotEmpty() || workerList.isNotEmpty()) && inWorkTime) {
+            val workerSpeedSum = if (setrikaWorkers.isNotEmpty()) {
+                setrikaWorkers.sumOf { it.speedMultiplier }
+            } else {
+                0.55 // Roaming staff / owner assist so ironing never freezes at 0%
+            }
+            val speedFactor = (if (hasBoiler) 1.6 else 1.0) * workerSpeedSum
             for (order in setrikaOrders) {
                 order.minutesInCurrentPhase += (1 * speedFactor).roundToInt().coerceAtLeast(1)
 
                 val requiredIronMinutes = (order.weightKg * (if (hasBoiler) 5.0 else 9.0)).roundToInt()
                 if (order.minutesInCurrentPhase >= requiredIronMinutes) {
-                    val avgEnergy = setrikaWorkers.map { it.energyPercent }.average()
+                    val avgEnergy = if (setrikaWorkers.isNotEmpty()) {
+                        setrikaWorkers.map { it.energyPercent }.average()
+                    } else {
+                        workerList.map { it.energyPercent }.average()
+                    }
                     if (avgEnergy < 40 && Random.nextDouble() < 0.15) {
                         order.hadRework = true
                         reworkCountToday++
@@ -359,12 +381,12 @@ class SimulationEngine(
             }
         }
 
-        // 5. PACKING
+        // 5. PACKING (Never deadlocks: any available worker or owner finishes packing)
         val packingOrders = ordersList.filter { it.currentPhase == StationPhase.PACKING }
         val packingWorkers = workerList.filter { it.assignedPhase == StationPhase.PACKING || it.assignedPhase == StationPhase.SETRIKA }
-        if (packingWorkers.isNotEmpty() && inWorkTime) {
+        if ((packingWorkers.isNotEmpty() || workerList.isNotEmpty()) && inWorkTime) {
             for (order in packingOrders) {
-                order.minutesInCurrentPhase++
+                order.minutesInCurrentPhase += if (packingWorkers.isNotEmpty()) 2 else 1
                 val requiredPackingMinutes = (order.weightKg * 3.0).roundToInt().coerceAtLeast(10)
                 if (order.minutesInCurrentPhase >= requiredPackingMinutes) {
                     completeAndPayOrder(order)
@@ -492,11 +514,13 @@ class SimulationEngine(
 
         val hasGasDryer = equipmentList.any { it.type == AssetType.DRYER_GAS_10KG }
         val hasBoiler = equipmentList.any { it.type == AssetType.SETRIKA_UAP_BOILER }
+        var handledDirectOrder = false
 
         when (phase) {
             StationPhase.MASUK -> {
                 val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.MASUK }
                 if (ord != null) {
+                    handledDirectOrder = true
                     ord.minutesInCurrentPhase += 6
                     if (ord.minutesInCurrentPhase >= 12) {
                         ord.currentPhase = StationPhase.CUCI
@@ -504,6 +528,7 @@ class SimulationEngine(
                         addParticle("🧺 Masuk ➔ Cuci (${ord.weightKg}kg)!", 0xFF10B981, 0.25f, 0.48f)
                     }
                 } else if (ordersList.count { !it.isCompleted } < 10) {
+                    handledDirectOrder = true
                     spawnCustomerOrder()
                 }
             }
@@ -513,6 +538,7 @@ class SimulationEngine(
                     (it.type == AssetType.MESIN_CUCI_7KG || it.type == AssetType.MESIN_CUCI_14KG)
                 }
                 if (ord != null) {
+                    handledDirectOrder = true
                     if (washer != null && !washer.isRunning) {
                         washer.isRunning = true
                         washer.remainingMinutesInCycle = washer.cycleMinutes
@@ -537,6 +563,7 @@ class SimulationEngine(
             StationPhase.JEMUR_KERING -> {
                 val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.JEMUR_KERING }
                 if (ord != null) {
+                    handledDirectOrder = true
                     val baseDryMinutes = if (hasGasDryer) 45 else (180 * weatherToday.dryTimeMultiplier).roundToInt()
                     ord.minutesInCurrentPhase += if (hasGasDryer) 15 else 45
                     if (ord.minutesInCurrentPhase >= baseDryMinutes) {
@@ -549,6 +576,7 @@ class SimulationEngine(
             StationPhase.SETRIKA -> {
                 val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.SETRIKA }
                 if (ord != null) {
+                    handledDirectOrder = true
                     val requiredIronMinutes = (ord.weightKg * (if (hasBoiler) 5.0 else 9.0)).roundToInt().coerceAtLeast(15)
                     ord.minutesInCurrentPhase += 12
                     if (ord.minutesInCurrentPhase >= requiredIronMinutes) {
@@ -561,6 +589,7 @@ class SimulationEngine(
             StationPhase.PACKING -> {
                 val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.PACKING }
                 if (ord != null) {
+                    handledDirectOrder = true
                     val requiredPackingMinutes = (ord.weightKg * 3.0).roundToInt().coerceAtLeast(10)
                     ord.minutesInCurrentPhase += 6
                     if (ord.minutesInCurrentPhase >= requiredPackingMinutes) {
@@ -569,10 +598,64 @@ class SimulationEngine(
                 }
             }
             StationPhase.SELESAI -> {
+                handledDirectOrder = true
                 reputationStars = (reputationStars + 0.01).coerceAtMost(5.0)
                 activeQuests.find { it.id == "Q-3" }?.let { it.currentProgress = reputationStars }
             }
         }
+
+        // Smart Assist: If the player tapped an empty station while laundry is waiting at another station,
+        // automatically help push the active laundry batch forward so flow never feels stuck!
+        if (!handledDirectOrder) {
+            val activeOrd = ordersList.firstOrNull { !it.isCompleted && it.currentPhase != StationPhase.SELESAI }
+            if (activeOrd != null) {
+                val originPhase = activeOrd.currentPhase
+                lastInteractedPhase = originPhase
+                when (originPhase) {
+                    StationPhase.MASUK -> {
+                        activeOrd.minutesInCurrentPhase += 6
+                        if (activeOrd.minutesInCurrentPhase >= 12) {
+                            activeOrd.currentPhase = StationPhase.CUCI
+                            activeOrd.minutesInCurrentPhase = 0
+                        }
+                    }
+                    StationPhase.CUCI -> {
+                        activeOrd.minutesInCurrentPhase = max(1, activeOrd.minutesInCurrentPhase + 8)
+                        val targetWashMins = activeOrd.requiredMinutesInPhase.coerceIn(20, 45)
+                        if (activeOrd.minutesInCurrentPhase >= targetWashMins) {
+                            activeOrd.currentPhase = StationPhase.JEMUR_KERING
+                            activeOrd.minutesInCurrentPhase = 0
+                        }
+                    }
+                    StationPhase.JEMUR_KERING -> {
+                        val baseDryMinutes = if (hasGasDryer) 45 else (180 * weatherToday.dryTimeMultiplier).roundToInt()
+                        activeOrd.minutesInCurrentPhase += if (hasGasDryer) 15 else 40
+                        if (activeOrd.minutesInCurrentPhase >= baseDryMinutes) {
+                            activeOrd.currentPhase = StationPhase.SETRIKA
+                            activeOrd.minutesInCurrentPhase = 0
+                        }
+                    }
+                    StationPhase.SETRIKA -> {
+                        val requiredIronMinutes = (activeOrd.weightKg * (if (hasBoiler) 5.0 else 9.0)).roundToInt().coerceAtLeast(15)
+                        activeOrd.minutesInCurrentPhase += 10
+                        if (activeOrd.minutesInCurrentPhase >= requiredIronMinutes) {
+                            activeOrd.currentPhase = StationPhase.PACKING
+                            activeOrd.minutesInCurrentPhase = 0
+                        }
+                    }
+                    StationPhase.PACKING -> {
+                        val requiredPackingMinutes = (activeOrd.weightKg * 3.0).roundToInt().coerceAtLeast(10)
+                        activeOrd.minutesInCurrentPhase += 6
+                        if (activeOrd.minutesInCurrentPhase >= requiredPackingMinutes) {
+                            completeAndPayOrder(activeOrd)
+                        }
+                    }
+                    StationPhase.SELESAI -> {}
+                }
+                addParticle("⚡ Dorong dari ${originPhase.step}.${originPhase.title}!", 0xFF0EA5E9, 0.5f, 0.42f)
+            }
+        }
+
         onTaskCompleted(
             title = "⚡ Bantu ${phase.title}!",
             subtitle = "Pekerjaan dipercepat tangan pemilik",
@@ -797,6 +880,7 @@ class SimulationEngine(
 
         val hasGasDryer = equipmentList.any { it.type == AssetType.DRYER_GAS_10KG }
         val setrikaStaff = workerList.count { it.assignedPhase == StationPhase.SETRIKA }
+        val cuciStaff = workerList.count { it.assignedPhase == StationPhase.CUCI }
 
         return when {
             weatherToday == Weather.HUJAN && !hasGasDryer && keringKg > 10.0 -> {
@@ -806,6 +890,24 @@ class SimulationEngine(
                     waitMinutes = 360,
                     cause = "Hujan turun! Jemuran biasa jadi lambat. Ketuk stasiun Kering untuk bantu angkat jemuran!",
                     suggestion = "Beli Dryer Gas di Toko agar cucian cepat kering meski hujan."
+                )
+            }
+            setrikaKg > 0.0 && setrikaStaff == 0 -> {
+                BottleneckDiagnosis(
+                    phase = StationPhase.SETRIKA,
+                    loadKg = setrikaKg,
+                    waitMinutes = 90,
+                    cause = "Ada ${setrikaKg.toInt()} kg baju di Setrika tapi belum ada pekerja tetap di sana! Ketuk Setrika atau pindahkan staf!",
+                    suggestion = "Ketuk 🔧 Atur di Setrika lalu tugaskan 1 pekerja agar setrika berjalan cepat."
+                )
+            }
+            cuciKg > 0.0 && cuciStaff == 0 -> {
+                BottleneckDiagnosis(
+                    phase = StationPhase.CUCI,
+                    loadKg = cuciKg,
+                    waitMinutes = 60,
+                    cause = "Ada ${cuciKg.toInt()} kg baju di Mesin Cuci tapi belum ada operator tetap! Ketuk Cuci untuk bantu!",
+                    suggestion = "Ketuk 🔧 Atur di Cuci untuk menugaskan pekerja menjaga Mesin Cuci."
                 )
             }
             setrikaKg >= 14.0 && setrikaStaff <= 1 -> {

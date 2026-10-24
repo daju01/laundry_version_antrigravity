@@ -270,6 +270,39 @@ fun MainGameCockpitScreen(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // CONTINUOUS FLOW STEP NEXT/PREVIOUS FOOTER BUTTON
+        val nextTabIdx = (selectedDetailTab + 1) % 4
+        val nextStepLabel = when (selectedDetailTab) {
+            0 -> "Lanjut Langkah 2: Cek Alur 6 Stasiun ➔"
+            1 -> "Lanjut Langkah 3: Kelola Tim & Mesin ➔"
+            2 -> "Lanjut Langkah 4: Cek Celengan Kas & BEP ➔"
+            else -> "🎮 Kembali Bermain di Ruang 3D (Langkah 1)"
+        }
+        val nextStepColor = when (selectedDetailTab) {
+            0 -> MintEmerald
+            1 -> TealAccent
+            2 -> BerryLavender
+            else -> OceanBluePrimary
+        }
+
+        Button(
+            onClick = { selectTab(nextTabIdx) },
+            colors = ButtonDefaults.buttonColors(containerColor = nextStepColor),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(42.dp)
+        ) {
+            Text(
+                text = nextStepLabel,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White
+            )
+        }
     }
 
     // MODALS & DIALOGS

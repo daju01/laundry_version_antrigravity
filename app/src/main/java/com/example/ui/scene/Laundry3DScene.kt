@@ -330,6 +330,10 @@ fun Laundry3DScene(
                     val selesaiKg = engine.ordersList.filter { it.currentPhase == StationPhase.SELESAI }.sumOf { it.weightKg }
 
                     val isWasherRunning = engine.equipmentList.any { it.isRunning } || cuciKg > 0.0
+                    val washerCount = engine.equipmentList.count {
+                        it.type == AssetType.MESIN_CUCI_7KG || it.type == AssetType.MESIN_CUCI_14KG
+                    }.coerceAtLeast(1)
+                    val hasCommercialWasher = engine.equipmentList.any { it.type == AssetType.MESIN_CUCI_14KG }
                     val hasGasDryer = engine.equipmentList.any { it.type == AssetType.DRYER_GAS_10KG }
                     val hasBoiler = engine.equipmentList.any { it.type == AssetType.SETRIKA_UAP_BOILER }
 
@@ -344,6 +348,8 @@ fun Laundry3DScene(
                         scale = scale,
                         zBounce = stationBounceZ(StationPhase.CUCI),
                         isRunning = isWasherRunning,
+                        washerCount = washerCount,
+                        hasCommercialWasher = hasCommercialWasher,
                         spinAngle = washerSpin,
                         steamFloat = steamFloat,
                         ordersKg = cuciKg,
@@ -927,8 +933,8 @@ private fun DrawScope.drawConveyorNetworkAndBundles3D(
             trackColor = color
         )
 
-        // If the origin or destination station has active laundry, render a moving 3D Laundry Basket sliding along the track!
-        val activeLoad = engine.ordersList.any { it.currentPhase == fromPhase || it.currentPhase == toPhase }
+        // Only render a moving 3D Laundry Basket on this track when the origin station actively has laundry flowing forward!
+        val activeLoad = engine.ordersList.any { !it.isCompleted && it.currentPhase == fromPhase }
         if (activeLoad) {
             val bx = c1.first + (c2.first - c1.first) * flowProgress
             val by = c1.second + (c2.second - c1.second) * flowProgress
@@ -959,6 +965,8 @@ private fun DrawScope.draw3DStationCuci(
     scale: Float,
     zBounce: Float,
     isRunning: Boolean,
+    washerCount: Int,
+    hasCommercialWasher: Boolean,
     spinAngle: Float,
     steamFloat: Float,
     ordersKg: Double,
@@ -978,69 +986,89 @@ private fun DrawScope.draw3DStationCuci(
     val vibX = if (isRunning) sin(spinAngle * PI.toFloat() / 45f) * 0.04f else 0f
     val vibZ = zBounce + (if (isRunning) abs(cos(spinAngle * PI.toFloat() / 45f)) * 0.05f else 0f)
 
+    val activeSlots = washerCount.coerceIn(1, 2)
     val washerPositions = listOf(0.95f, 2.35f)
     washerPositions.forEachIndexed { idx, baseWx ->
-        val wx = baseWx + vibX * (if (idx == 0) 1f else -1f)
         val wy = 0.90f
-        // Pedestal
-        BlenderRenderer.drawIsoBox(
-            this, originX, originY, scale,
-            x = wx, y = wy, z = vibZ,
-            dx = 1.18f, dy = 1.18f, dz = 0.20f,
-            topColor = Color(0xFFCBD5E1),
-            leftColor = Color(0xFF94A3B8),
-            rightColor = Color(0xFF64748B)
-        )
-        // Main Cabinet
-        BlenderRenderer.drawIsoBox(
-            this, originX, originY, scale,
-            x = wx, y = wy, z = vibZ + 0.20f,
-            dx = 1.18f, dy = 1.18f, dz = 1.35f,
-            topColor = Color(0xFFFFFFFF),
-            leftColor = Color(0xFFF8FAFC),
-            rightColor = Color(0xFFE2E8F0),
-            strokeColor = Color(0xFFBAE6FD)
-        )
-        // Top Control Fascia
-        val topAccent = if (idx == 0) Color(0xFF0EA5E9) else Color(0xFF06B6D4)
-        BlenderRenderer.drawIsoBox(
-            this, originX, originY, scale,
-            x = wx, y = wy, z = vibZ + 1.55f,
-            dx = 1.18f, dy = 1.18f, dz = 0.28f,
-            topColor = BlenderLighting.highlightColor(topAccent, 0.35f),
-            leftColor = topAccent,
-            rightColor = BlenderLighting.shadeColor(topAccent, 0.82f)
-        )
+        if (idx < activeSlots) {
+            val wx = baseWx + vibX * (if (idx == 0) 1f else -1f)
+            // Pedestal
+            BlenderRenderer.drawIsoBox(
+                this, originX, originY, scale,
+                x = wx, y = wy, z = vibZ,
+                dx = 1.18f, dy = 1.18f, dz = 0.20f,
+                topColor = Color(0xFFCBD5E1),
+                leftColor = Color(0xFF94A3B8),
+                rightColor = Color(0xFF64748B)
+            )
+            // Main Cabinet
+            BlenderRenderer.drawIsoBox(
+                this, originX, originY, scale,
+                x = wx, y = wy, z = vibZ + 0.20f,
+                dx = 1.18f, dy = 1.18f, dz = 1.35f,
+                topColor = Color(0xFFFFFFFF),
+                leftColor = Color(0xFFF8FAFC),
+                rightColor = Color(0xFFE2E8F0),
+                strokeColor = Color(0xFFBAE6FD)
+            )
+            // Top Control Fascia (Gold/Amber trim if upgraded to Commercial 14kg Washer!)
+            val topAccent = if (idx == 1 && hasCommercialWasher) {
+                Color(0xFFF59E0B)
+            } else if (idx == 0) {
+                Color(0xFF0EA5E9)
+            } else {
+                Color(0xFF06B6D4)
+            }
+            BlenderRenderer.drawIsoBox(
+                this, originX, originY, scale,
+                x = wx, y = wy, z = vibZ + 1.55f,
+                dx = 1.18f, dy = 1.18f, dz = 0.28f,
+                topColor = BlenderLighting.highlightColor(topAccent, 0.35f),
+                leftColor = topAccent,
+                rightColor = BlenderLighting.shadeColor(topAccent, 0.82f)
+            )
 
-        // Blinking LED indicator dot on control fascia
-        val ledPt = BlenderRenderer.isoPoint(originX, originY, scale, wx + 0.92f, wy + 1.19f, vibZ + 1.68f)
-        drawCircle(
-            color = if (isRunning) Color(0xFF4ADE80) else Color(0xFFFBBF24),
-            radius = scale * 0.08f,
-            center = ledPt
-        )
+            // Blinking LED indicator dot on control fascia
+            val ledPt = BlenderRenderer.isoPoint(originX, originY, scale, wx + 0.92f, wy + 1.19f, vibZ + 1.68f)
+            drawCircle(
+                color = if (isRunning) Color(0xFF4ADE80) else Color(0xFFFBBF24),
+                radius = scale * 0.08f,
+                center = ledPt
+            )
 
-        // True 3D Foreshortened Isometric Drum Porthole on the +Y Front Face
-        BlenderRenderer.drawIsoPortholeOnYFace(
-            drawScope = this,
-            originX = originX,
-            originY = originY,
-            scale = scale,
-            centerX = wx + 0.59f,
-            faceY = wy + 1.18f,
-            centerZ = vibZ + 0.88f,
-            radius = 0.39f,
-            extrudeY = 0.13f,
-            rimColor = topAccent,
-            glassColor = if (isRunning) Color(0xFF0284C7) else Color(0xFF334155),
-            swirlColor = if (isRunning) Color(0xFF7DD3FC) else null,
-            spinDeg = spinAngle + idx * 90f
-        )
+            // True 3D Foreshortened Isometric Drum Porthole on the +Y Front Face
+            BlenderRenderer.drawIsoPortholeOnYFace(
+                drawScope = this,
+                originX = originX,
+                originY = originY,
+                scale = scale,
+                centerX = wx + 0.59f,
+                faceY = wy + 1.18f,
+                centerZ = vibZ + 0.88f,
+                radius = 0.39f,
+                extrudeY = 0.13f,
+                rimColor = topAccent,
+                glassColor = if (isRunning) Color(0xFF0284C7) else Color(0xFF334155),
+                swirlColor = if (isRunning) Color(0xFF7DD3FC) else null,
+                spinDeg = spinAngle + idx * 90f
+            )
 
-        if (isRunning) {
-            val bubblePos = BlenderRenderer.isoPoint(originX, originY, scale, wx + 0.55f, wy + 0.55f, vibZ + 1.95f + steamFloat * 0.65f)
-            drawCircle(Color(0xCC7DD3FC), radius = 5.5f, center = bubblePos)
-            drawCircle(Color.White, radius = 2.2f, center = Offset(bubblePos.x - 1.5f, bubblePos.y - 1.5f))
+            if (isRunning) {
+                val bubblePos = BlenderRenderer.isoPoint(originX, originY, scale, wx + 0.55f, wy + 0.55f, vibZ + 1.95f + steamFloat * 0.65f)
+                drawCircle(Color(0xCC7DD3FC), radius = 5.5f, center = bubblePos)
+                drawCircle(Color.White, radius = 2.2f, center = Offset(bubblePos.x - 1.5f, bubblePos.y - 1.5f))
+            }
+        } else {
+            // Empty 2nd Washer Expansion Slot Pad (shows clearly where a new bought washer will appear!)
+            BlenderRenderer.drawIsoBox(
+                this, originX, originY, scale,
+                x = baseWx, y = wy, z = 0.02f,
+                dx = 1.18f, dy = 1.18f, dz = 0.12f,
+                topColor = Color(0xFFE0F2FE),
+                leftColor = Color(0xFFBAE6FD),
+                rightColor = Color(0xFF7DD3FC),
+                strokeColor = Color(0xFF38BDF8)
+            )
         }
     }
 
@@ -1540,6 +1568,7 @@ private fun DrawScope.draw3DIsoCharacters(
         }
         val zAnim = if (index % 2 == 0) bob else (0.22f - bob)
         val outfit = Color(worker.avatarColor)
+        val statusBadge = if (worker.energyPercent <= 45) "😴Kopi!" else worker.moodEmoji
         drawSingle3DIsoCharacter(
             originX = originX,
             originY = originY,
@@ -1550,7 +1579,7 @@ private fun DrawScope.draw3DIsoCharacters(
             armSwing = armSwing,
             outfitColor = outfit,
             capColor = BlenderLighting.highlightColor(outfit, 0.25f),
-            label = "${worker.name.substringBefore(" ")} ${worker.moodEmoji}",
+            label = "${worker.name.substringBefore(" ")} $statusBadge",
             textMeasurer = textMeasurer
         )
     }

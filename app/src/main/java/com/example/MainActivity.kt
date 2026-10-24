@@ -76,6 +76,7 @@ fun UnifiedLaundryGameApp(
     var currentNavTab by remember { mutableStateOf(NavGameTab.COCKPIT_3D) }
     var currentWorkspaceMode by remember { mutableStateOf(WorkspaceMode.TYCOON_3D) }
     var tycoonDetailTab by remember { mutableIntStateOf(0) }
+    var syncFeedbackCount by remember { mutableIntStateOf(0) }
 
     BackHandler(enabled = currentNavTab != NavGameTab.COCKPIT_3D || currentWorkspaceMode != WorkspaceMode.TYCOON_3D) {
         currentNavTab = NavGameTab.COCKPIT_3D
@@ -99,6 +100,7 @@ fun UnifiedLaundryGameApp(
         topBar = {
             WorkspaceModeSwitcherBar(
                 currentMode = currentWorkspaceMode,
+                isSyncedRecently = syncFeedbackCount > 0,
                 onSelectMode = { mode ->
                     syncAndSwitchMode(mode)
                     if (mode == WorkspaceMode.TYCOON_3D) {
@@ -111,6 +113,7 @@ fun UnifiedLaundryGameApp(
                         simConfig = viewModel.toBusinessConfig(),
                         simOrders = viewModel.toBusinessOrders()
                     )
+                    syncFeedbackCount++
                     if (currentWorkspaceMode == WorkspaceMode.TYCOON_3D) {
                         currentWorkspaceMode = WorkspaceMode.ERP_SIMULATOR
                     }
@@ -175,7 +178,7 @@ fun UnifiedLaundryGameApp(
             }
         }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
@@ -185,92 +188,134 @@ fun UnifiedLaundryGameApp(
                     )
                 )
         ) {
-            when (currentWorkspaceMode) {
-                WorkspaceMode.TYCOON_3D -> {
-                    MainGameCockpitScreen(
-                        viewModel = viewModel,
-                        uiState = uiState,
-                        externalDetailTab = tycoonDetailTab,
-                        onDetailTabChanged = { idx ->
-                            tycoonDetailTab = idx
-                            currentNavTab = when (idx) {
-                                1 -> NavGameTab.PIPELINE
-                                2 -> NavGameTab.TIM_ALAT
-                                3 -> NavGameTab.KEUANGAN
-                                else -> NavGameTab.COCKPIT_3D
-                            }
-                        },
-                        onOpenErpMode = { modeKey ->
-                            when (modeKey) {
-                                "COCKPIT" -> syncAndSwitchMode(WorkspaceMode.ERP_COCKPIT)
-                                "OPERASI" -> syncAndSwitchMode(WorkspaceMode.ERP_OPERASI)
-                                "KEUANGAN" -> syncAndSwitchMode(WorkspaceMode.ERP_KEUANGAN)
-                                "SIMULATOR" -> syncAndSwitchMode(WorkspaceMode.ERP_SIMULATOR)
-                                "SETTING" -> syncAndSwitchMode(WorkspaceMode.ERP_SETTING)
-                            }
+            if (currentWorkspaceMode != WorkspaceMode.TYCOON_3D) {
+                Surface(
+                    color = SkyTintBg,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "🎮 Toko 3D: Hari ${uiState.engine.currentDay} (${uiState.engine.getFormattedTime()}) • ${uiState.engine.ordersList.count { !it.isCompleted }} order aktif",
+                            fontSize = 10.5.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = OceanBlueDeep
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(OceanBluePrimary)
+                                .clickable {
+                                    currentWorkspaceMode = WorkspaceMode.TYCOON_3D
+                                    currentNavTab = NavGameTab.COCKPIT_3D
+                                    tycoonDetailTab = 0
+                                }
+                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "⬅️ Kembali ke 3D",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
                         }
-                    )
-                }
-                WorkspaceMode.ERP_COCKPIT -> {
-                    CockpitScreen(
-                        state = erpState,
-                        onOpenAddOrder = { erpViewModel.openAddOrderSheet() },
-                        onNavigateToOperasi = {
-                            syncAndSwitchMode(WorkspaceMode.ERP_OPERASI)
-                        },
-                        onNavigateToSimulator = {
-                            syncAndSwitchMode(WorkspaceMode.ERP_SIMULATOR)
-                        }
-                    )
-                }
-                WorkspaceMode.ERP_OPERASI -> {
-                    OperasiScreen(
-                        state = erpState,
-                        onAdvanceOrderStatus = { erpViewModel.advanceOrderStatus(it) },
-                        onDeleteOrder = { erpViewModel.deleteOrder(it) },
-                        onOpenAddOrder = { erpViewModel.openAddOrderSheet() }
-                    )
-                }
-                WorkspaceMode.ERP_KEUANGAN -> {
-                    KeuanganScreen(
-                        state = erpState
-                    )
-                }
-                WorkspaceMode.ERP_SIMULATOR -> {
-                    SimulatorScreen(
-                        state = erpState,
-                        onUpdateOrderKg = { erpViewModel.updateSimOrderKg(it) },
-                        onUpdatePrice = { erpViewModel.updateSimPrice(it) },
-                        onUpdateStaff = { erpViewModel.updateSimStaff(it) },
-                        onUpdateWashingMachines = { erpViewModel.updateSimWashingMachines(it) },
-                        onUpdateDryers = { erpViewModel.updateSimDryers(it) },
-                        onUpdateRent = { erpViewModel.updateSimRent(it) },
-                        onUpdateElectricity = { erpViewModel.updateSimElectricity(it) },
-                        onUpdateSalary = { erpViewModel.updateSimSalary(it) },
-                        onApplyScenario = { erpViewModel.applyScenario(it) },
-                        onUpdateMachineInvestmentInput = { erpViewModel.updateMachineInvestmentInput(it) },
-                        onUpdateTargetProfit = { erpViewModel.updateTargetProfit(it) },
-                        onUpdatePricingMargin = { erpViewModel.updatePricingTargetMargin(it) },
-                        onUpdatePricingCompetitor = { erpViewModel.updatePricingCompetitor(it) }
-                    )
-                }
-                WorkspaceMode.ERP_SETTING -> {
-                    SettingScreen(
-                        state = erpState,
-                        onSaveConfig = { erpViewModel.updateConfig(it) },
-                        onResetToDefault = { erpViewModel.resetToSampleData() }
-                    )
+                    }
                 }
             }
 
-            if (erpState.isAddOrderSheetOpen) {
-                AddOrderBottomSheet(
-                    config = erpState.config,
-                    onDismiss = { erpViewModel.closeAddOrderSheet() },
-                    onSubmit = { name, phone, service, weight, price, deadline, status ->
-                        erpViewModel.addOrder(name, phone, service, weight, price, deadline, status)
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (currentWorkspaceMode) {
+                    WorkspaceMode.TYCOON_3D -> {
+                        MainGameCockpitScreen(
+                            viewModel = viewModel,
+                            uiState = uiState,
+                            externalDetailTab = tycoonDetailTab,
+                            onDetailTabChanged = { idx ->
+                                tycoonDetailTab = idx
+                                currentNavTab = when (idx) {
+                                    1 -> NavGameTab.PIPELINE
+                                    2 -> NavGameTab.TIM_ALAT
+                                    3 -> NavGameTab.KEUANGAN
+                                    else -> NavGameTab.COCKPIT_3D
+                                }
+                            },
+                            onOpenErpMode = { modeKey ->
+                                when (modeKey) {
+                                    "COCKPIT" -> syncAndSwitchMode(WorkspaceMode.ERP_COCKPIT)
+                                    "OPERASI" -> syncAndSwitchMode(WorkspaceMode.ERP_OPERASI)
+                                    "KEUANGAN" -> syncAndSwitchMode(WorkspaceMode.ERP_KEUANGAN)
+                                    "SIMULATOR" -> syncAndSwitchMode(WorkspaceMode.ERP_SIMULATOR)
+                                    "SETTING" -> syncAndSwitchMode(WorkspaceMode.ERP_SETTING)
+                                }
+                            }
+                        )
                     }
-                )
+                    WorkspaceMode.ERP_COCKPIT -> {
+                        CockpitScreen(
+                            state = erpState,
+                            onOpenAddOrder = { erpViewModel.openAddOrderSheet() },
+                            onNavigateToOperasi = {
+                                syncAndSwitchMode(WorkspaceMode.ERP_OPERASI)
+                            },
+                            onNavigateToSimulator = {
+                                syncAndSwitchMode(WorkspaceMode.ERP_SIMULATOR)
+                            }
+                        )
+                    }
+                    WorkspaceMode.ERP_OPERASI -> {
+                        OperasiScreen(
+                            state = erpState,
+                            onAdvanceOrderStatus = { erpViewModel.advanceOrderStatus(it) },
+                            onDeleteOrder = { erpViewModel.deleteOrder(it) },
+                            onOpenAddOrder = { erpViewModel.openAddOrderSheet() }
+                        )
+                    }
+                    WorkspaceMode.ERP_KEUANGAN -> {
+                        KeuanganScreen(
+                            state = erpState
+                        )
+                    }
+                    WorkspaceMode.ERP_SIMULATOR -> {
+                        SimulatorScreen(
+                            state = erpState,
+                            onUpdateOrderKg = { erpViewModel.updateSimOrderKg(it) },
+                            onUpdatePrice = { erpViewModel.updateSimPrice(it) },
+                            onUpdateStaff = { erpViewModel.updateSimStaff(it) },
+                            onUpdateWashingMachines = { erpViewModel.updateSimWashingMachines(it) },
+                            onUpdateDryers = { erpViewModel.updateSimDryers(it) },
+                            onUpdateRent = { erpViewModel.updateSimRent(it) },
+                            onUpdateElectricity = { erpViewModel.updateSimElectricity(it) },
+                            onUpdateSalary = { erpViewModel.updateSimSalary(it) },
+                            onApplyScenario = { erpViewModel.applyScenario(it) },
+                            onUpdateMachineInvestmentInput = { erpViewModel.updateMachineInvestmentInput(it) },
+                            onUpdateTargetProfit = { erpViewModel.updateTargetProfit(it) },
+                            onUpdatePricingMargin = { erpViewModel.updatePricingTargetMargin(it) },
+                            onUpdatePricingCompetitor = { erpViewModel.updatePricingCompetitor(it) }
+                        )
+                    }
+                    WorkspaceMode.ERP_SETTING -> {
+                        SettingScreen(
+                            state = erpState,
+                            onSaveConfig = { erpViewModel.updateConfig(it) },
+                            onResetToDefault = { erpViewModel.resetToSampleData() }
+                        )
+                    }
+                }
+
+                if (erpState.isAddOrderSheetOpen) {
+                    AddOrderBottomSheet(
+                        config = erpState.config,
+                        onDismiss = { erpViewModel.closeAddOrderSheet() },
+                        onSubmit = { name, phone, service, weight, price, deadline, status ->
+                            erpViewModel.addOrder(name, phone, service, weight, price, deadline, status)
+                        }
+                    )
+                }
             }
         }
     }
@@ -279,6 +324,7 @@ fun UnifiedLaundryGameApp(
 @Composable
 private fun WorkspaceModeSwitcherBar(
     currentMode: WorkspaceMode,
+    isSyncedRecently: Boolean = false,
     onSelectMode: (WorkspaceMode) -> Unit,
     onSyncGameToErp: () -> Unit
 ) {
@@ -334,7 +380,7 @@ private fun WorkspaceModeSwitcherBar(
                     .testTag("btn_sync_game_to_erp")
             ) {
                 Text(
-                    text = "🔄 Sync Data",
+                    text = if (isSyncedRecently) "✅ Tersinkron" else "🔄 Sync Data",
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = MintEmeraldDark,

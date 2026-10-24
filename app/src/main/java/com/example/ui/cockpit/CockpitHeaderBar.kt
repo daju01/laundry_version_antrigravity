@@ -116,8 +116,10 @@ fun CockpitHeaderBar(
                     }
                 }
 
-                // Clean Day, Clock & Weather Pill
-                Row(
+                // Clean Day, Clock & Workday Progress Pill (08:00 -> 18:00/20:00)
+                val dayProgress = engine.getWorkdayProgressFraction()
+                val closeLabel = if (engine.isOvertimeActiveToday) "20:00" else "18:00"
+                Column(
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
                         .background(if (engine.isLabMode) LavenderTintBg else SkyTintBg)
@@ -127,16 +129,32 @@ fun CockpitHeaderBar(
                             RoundedCornerShape(10.dp)
                         )
                         .padding(horizontal = 9.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    horizontalAlignment = Alignment.End
                 ) {
-                    Text(
-                        text = if (engine.isLabMode) "🧪 LAB" else "Hari ${engine.currentDay} • ${engine.getFormattedTime()}",
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = if (engine.isLabMode) BerryLavenderDark else OceanBlueDeep
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = if (engine.isLabMode) {
+                                "🧪 LAB • ${engine.getFormattedTime()}"
+                            } else {
+                                "Hari ${engine.currentDay} • ${engine.getFormattedTime()}/$closeLabel"
+                            },
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = if (engine.isLabMode) BerryLavenderDark else OceanBlueDeep
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = engine.weatherToday.icon, fontSize = 12.sp)
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    LinearProgressIndicator(
+                        progress = { dayProgress },
+                        modifier = Modifier
+                            .width(86.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                        color = if (dayProgress > 0.8f) CoralRose else OceanBluePrimary,
+                        trackColor = Color.White
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = engine.weatherToday.icon, fontSize = 13.sp)
                 }
             }
 
