@@ -35,8 +35,10 @@ class SimulationEngine(
     var latestCompletionFeedback: TaskCompletionFeedback? = null
     var pendingLevelUp: LevelUpCelebration? = null
     var pendingStreakCelebration: StreakCelebration? = null
-    var lastInteractionTimestamp: Long = 0L
+
+    // Reactive 3D Station Tap Tracking (for 3D bounce & shockwave ring)
     var lastInteractedPhase: StationPhase? = null
+    var lastInteractionTimestamp: Long = 0L
 
     // Business Balance & Reputation
     var cash: Double = 5_000_000.0 // Rp 5 juta modal pengembangan awal
@@ -159,6 +161,25 @@ class SimulationEngine(
         return currentMinuteOfDay in startWorkMinute..closeMinute
     }
 
+    /**
+     * Returns a 0f..1f progress fraction for the active batch at a given station phase,
+     * used to render live 3D progress bars and active station animations.
+     */
+    fun getPhaseProgressFraction(phase: StationPhase): Float {
+        val order = ordersList.firstOrNull { it.currentPhase == phase && !it.isDelivered } ?: return 0f
+        val hasGasDryer = equipmentList.any { it.type == AssetType.DRYER_GAS_10KG }
+        val hasBoiler = equipmentList.any { it.type == AssetType.SETRIKA_UAP_BOILER }
+        val req = when (phase) {
+            StationPhase.MASUK -> 12f
+            StationPhase.CUCI -> order.requiredMinutesInPhase.coerceIn(20, 45).toFloat()
+            StationPhase.JEMUR_KERING -> (if (hasGasDryer) 45f else (180f * weatherToday.dryTimeMultiplier.toFloat()))
+            StationPhase.SETRIKA -> (order.weightKg * (if (hasBoiler) 5.0 else 9.0)).toFloat().coerceAtLeast(15f)
+            StationPhase.PACKING -> (order.weightKg * 3.0).toFloat().coerceAtLeast(10f)
+            StationPhase.SELESAI -> 1f
+        }
+        return (order.minutesInCurrentPhase.toFloat() / req.coerceAtLeast(1f)).coerceIn(0.08f, 1f)
+    }
+
     // Advance clock by delta minutes
     fun tickMinutes(minutesToAdvance: Int = 1) {
         if (simSpeed == SimSpeed.PAUSED || minutesToAdvance <= 0) return
@@ -228,7 +249,7 @@ class SimulationEngine(
         ordersList.add(newOrder)
 
         // Spawn floating text
-        addParticle("🧺 Order Baru! ${weight}kg", 0xFF38BDF8, 0.22f, 0.70f)
+        addParticle("🧺 Order Baru! ${weight}kg", 0xFF10B981, 0.24f, 0.65f)
     }
 
     private fun processOperationsTick() {
@@ -346,38 +367,7 @@ class SimulationEngine(
                 order.minutesInCurrentPhase++
                 val requiredPackingMinutes = (order.weightKg * 3.0).roundToInt().coerceAtLeast(10)
                 if (order.minutesInCurrentPhase >= requiredPackingMinutes) {
-                    order.currentPhase = StationPhase.SELESAI
-                    order.isCompleted = true
-                    order.minutesInCurrentPhase = 0
-                    completedOrdersCountToday++
-                    completedKgToday += order.weightKg
-                    operationalExpensesToday += (order.weightKg * 600.0)
-
-                    val currentTotalMinute = (currentDay * 1440) + currentMinuteOfDay
-                    val deadlineTotalMinute = (order.deadlineDay * 1440) + order.deadlineMinuteOfDay
-                    val isOnTime = currentTotalMinute <= deadlineTotalMinute
-
-                    if (isOnTime) {
-                        reputationStars = (reputationStars + 0.02).coerceAtMost(5.0)
-                        onTaskCompleted("✨ Selesai Tepat Waktu!", "${order.customerName} (${order.weightKg} kg)", 25, phase = StationPhase.PACKING)
-                        addParticle("🛡️ On-Time! Streak Aman", 0xFF10B981, 0.45f, 0.45f)
-                    } else {
-                        if (!order.isLate) {
-                            order.isLate = true
-                            lateOrdersCountToday++
-                        }
-                        reputationStars = (reputationStars - 0.05).coerceAtLeast(3.0)
-                        onTaskCompleted("⏰ Selesai Terlambat", "${order.customerName} lewat batas waktu", 10, phase = StationPhase.PACKING)
-                        addParticle("⚠️ Order Terlambat!", 0xFFEF4444, 0.5f, 0.6f)
-                    }
-
-                    // Update quest progress
-                    activeQuests.find { it.id == "Q-1" }?.let { q ->
-                        q.currentProgress = min(q.targetAmount, q.currentProgress + order.weightKg)
-                    }
-                    activeQuests.find { it.id == "Q-3" }?.let { q ->
-                        q.currentProgress = reputationStars
-                    }
+                    completeAndPayOrder(order)
                 }
             }
         }
@@ -417,7 +407,53 @@ class SimulationEngine(
         }
     }
 
+    private fun completeAndPayOrder(order: SimOrder) {
+        order.currentPhase = StationPhase.SELESAI
+        order.isCompleted = true
+        order.minutesInCurrentPhase = 0
+        completedOrdersCountToday++
+        completedKgToday += order.weightKg
+        operationalExpensesToday += (order.weightKg * 600.0)
+
+        val currentTotalMinute = (currentDay * 1440) + currentMinuteOfDay
+        val deadlineTotalMinute = (order.deadlineDay * 1440) + order.deadlineMinuteOfDay
+        val isOnTime = currentTotalMinute <= deadlineTotalMinute
+
+        if (isOnTime) {
+            reputationStars = (reputationStars + 0.02).coerceAtMost(5.0)
+            onTaskCompleted("✨ Selesai Tepat Waktu!", "${order.customerName} (${order.weightKg} kg)", 25, phase = StationPhase.PACKING)
+            addParticle("🛡️ On-Time! Streak Aman", 0xFF10B981, 0.45f, 0.45f)
+        } else {
+            if (!order.isLate) {
+                order.isLate = true
+                lateOrdersCountToday++
+            }
+            reputationStars = (reputationStars - 0.05).coerceAtLeast(3.0)
+            onTaskCompleted("⏰ Selesai Terlambat", "${order.customerName} lewat batas waktu", 10, phase = StationPhase.PACKING)
+            addParticle("⚠️ Order Terlambat!", 0xFFEF4444, 0.5f, 0.6f)
+        }
+
+        // Collect payment immediately so player sees immediate reward
+        if (!order.isPaid) {
+            order.isPaid = true
+            order.isDelivered = true
+            revenueCollectedToday += order.priceTotal
+            cash += order.priceTotal
+            addParticle("+${formatMoneyCompact(order.priceTotal)} 🪙 Kas Masuk!", 0xFFF59E0B, 0.5f, 0.72f)
+        }
+
+        // Update quest progress
+        activeQuests.find { it.id == "Q-1" }?.let { q ->
+            q.currentProgress = min(q.targetAmount, q.currentProgress + order.weightKg)
+        }
+        activeQuests.find { it.id == "Q-3" }?.let { q ->
+            q.currentProgress = reputationStars
+        }
+    }
+
     fun addParticle(text: String, colorHex: Long, xRatio: Float, yRatio: Float) {
+        val now = System.currentTimeMillis()
+        floatingParticles.removeAll { now - it.timestamp > 2500 }
         floatingParticles.add(FloatingParticle(UUID.randomUUID().toString(), text, colorHex, xRatio, yRatio))
     }
 
@@ -446,63 +482,104 @@ class SimulationEngine(
         latestCompletionFeedback = feedback
 
         val comboBadge = if (taskComboCount > 1) " 🔥x$taskComboCount" else ""
-        addParticle("$title$comboBadge (+${totalXp}XP)", 0xFF38BDF8, 0.5f, 0.4f)
+        addParticle("$title$comboBadge (+${totalXp}XP)", 0xFF0EA5E9, 0.5f, 0.35f)
     }
 
     fun interactWithStation(phase: StationPhase) {
-        lastInteractionTimestamp = System.currentTimeMillis()
-        lastInteractedPhase = phase
-        // Boost operations across all stations and award XP with lively visual & audio feedback
         com.example.audio.GameSoundManager.playTapBoost()
+        lastInteractedPhase = phase
+        lastInteractionTimestamp = System.currentTimeMillis()
+
+        val hasGasDryer = equipmentList.any { it.type == AssetType.DRYER_GAS_10KG }
+        val hasBoiler = equipmentList.any { it.type == AssetType.SETRIKA_UAP_BOILER }
+
         when (phase) {
             StationPhase.MASUK -> {
-                ordersList.firstOrNull { it.currentPhase == StationPhase.MASUK }?.let {
-                    it.minutesInCurrentPhase += 4
+                val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.MASUK }
+                if (ord != null) {
+                    ord.minutesInCurrentPhase += 6
+                    if (ord.minutesInCurrentPhase >= 12) {
+                        ord.currentPhase = StationPhase.CUCI
+                        ord.minutesInCurrentPhase = 0
+                        addParticle("🧺 Masuk ➔ Cuci (${ord.weightKg}kg)!", 0xFF10B981, 0.25f, 0.48f)
+                    }
+                } else if (ordersList.count { !it.isCompleted } < 10) {
+                    spawnCustomerOrder()
                 }
             }
             StationPhase.CUCI -> {
-                equipmentList.firstOrNull { it.isRunning }?.let {
-                    it.remainingMinutesInCycle = max(1, it.remainingMinutesInCycle - 3)
+                val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.CUCI }
+                val washer = equipmentList.firstOrNull {
+                    (it.type == AssetType.MESIN_CUCI_7KG || it.type == AssetType.MESIN_CUCI_14KG)
                 }
-                ordersList.firstOrNull { it.currentPhase == StationPhase.CUCI && it.minutesInCurrentPhase > 0 }?.let {
-                    it.minutesInCurrentPhase += 3
+                if (ord != null) {
+                    if (washer != null && !washer.isRunning) {
+                        washer.isRunning = true
+                        washer.remainingMinutesInCycle = washer.cycleMinutes
+                        washer.currentBatchWeightKg = ord.weightKg
+                        ord.requiredMinutesInPhase = washer.cycleMinutes
+                        if (ord.minutesInCurrentPhase == 0) ord.minutesInCurrentPhase = 1
+                    }
+                    ord.minutesInCurrentPhase += 9
+                    washer?.let {
+                        it.remainingMinutesInCycle = max(0, it.remainingMinutesInCycle - 9)
+                    }
+                    val targetWashMins = ord.requiredMinutesInPhase.coerceIn(20, 45)
+                    if (ord.minutesInCurrentPhase >= targetWashMins || (washer != null && washer.remainingMinutesInCycle <= 0)) {
+                        washer?.isRunning = false
+                        washer?.currentBatchWeightKg = 0.0
+                        ord.currentPhase = StationPhase.JEMUR_KERING
+                        ord.minutesInCurrentPhase = 0
+                        addParticle("🫧 Selesai Cuci ➔ Kering!", 0xFF0EA5E9, 0.38f, 0.28f)
+                    }
                 }
             }
             StationPhase.JEMUR_KERING -> {
-                ordersList.firstOrNull { it.currentPhase == StationPhase.JEMUR_KERING }?.let {
-                    it.minutesInCurrentPhase += 10
+                val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.JEMUR_KERING }
+                if (ord != null) {
+                    val baseDryMinutes = if (hasGasDryer) 45 else (180 * weatherToday.dryTimeMultiplier).roundToInt()
+                    ord.minutesInCurrentPhase += if (hasGasDryer) 15 else 45
+                    if (ord.minutesInCurrentPhase >= baseDryMinutes) {
+                        ord.currentPhase = StationPhase.SETRIKA
+                        ord.minutesInCurrentPhase = 0
+                        addParticle("☀️ Kering ➔ Siap Setrika!", 0xFFF59E0B, 0.65f, 0.30f)
+                    }
                 }
             }
             StationPhase.SETRIKA -> {
-                ordersList.firstOrNull { it.currentPhase == StationPhase.SETRIKA }?.let {
-                    it.minutesInCurrentPhase += 3
+                val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.SETRIKA }
+                if (ord != null) {
+                    val requiredIronMinutes = (ord.weightKg * (if (hasBoiler) 5.0 else 9.0)).roundToInt().coerceAtLeast(15)
+                    ord.minutesInCurrentPhase += 12
+                    if (ord.minutesInCurrentPhase >= requiredIronMinutes) {
+                        ord.currentPhase = StationPhase.PACKING
+                        ord.minutesInCurrentPhase = 0
+                        addParticle("💨 Licin Rapi ➔ Packing!", 0xFFF43F5E, 0.55f, 0.52f)
+                    }
                 }
             }
             StationPhase.PACKING -> {
-                ordersList.firstOrNull { it.currentPhase == StationPhase.PACKING }?.let {
-                    it.minutesInCurrentPhase += 3
+                val ord = ordersList.firstOrNull { it.currentPhase == StationPhase.PACKING }
+                if (ord != null) {
+                    val requiredPackingMinutes = (ord.weightKg * 3.0).roundToInt().coerceAtLeast(10)
+                    ord.minutesInCurrentPhase += 6
+                    if (ord.minutesInCurrentPhase >= requiredPackingMinutes) {
+                        completeAndPayOrder(ord)
+                    }
                 }
             }
             StationPhase.SELESAI -> {
-                // Collect any unpaid finished order or boost reputation slightly
                 reputationStars = (reputationStars + 0.01).coerceAtMost(5.0)
+                activeQuests.find { it.id == "Q-3" }?.let { it.currentProgress = reputationStars }
             }
         }
         onTaskCompleted(
-            title = "⚡ Dibantu Pemilik!",
-            subtitle = "Alur ${phase.title} dipercepat",
+            title = "⚡ Bantu ${phase.title}!",
+            subtitle = "Pekerjaan dipercepat tangan pemilik",
             xpEarned = 8,
             phase = phase
         )
-        addParticle("⚡ Tap Boost! +8 XP ⭐", 0xFFFBBF24, 0.5f, 0.5f)
-    }
-
-    fun getPhaseProgressFraction(phase: StationPhase): Float {
-        val phaseOrders = ordersList.filter { it.currentPhase == phase }
-        if (phaseOrders.isEmpty()) return 0f
-        val activeOrder = phaseOrders.firstOrNull { it.minutesInCurrentPhase > 0 } ?: phaseOrders.first()
-        val totalReq = max(1, activeOrder.requiredMinutesInPhase)
-        return (activeOrder.minutesInCurrentPhase.toFloat() / totalReq.toFloat()).coerceIn(0f, 1f)
+        addParticle("⚡ Cepat! +8 XP ⭐", 0xFFF59E0B, 0.5f, 0.45f)
     }
 
     fun addXp(amount: Int) {
@@ -727,8 +804,8 @@ class SimulationEngine(
                     phase = StationPhase.JEMUR_KERING,
                     loadKg = keringKg,
                     waitMinutes = 360,
-                    cause = "Hujan deras menghentikan jemuran luar ruangan. Cucian basah menumpuk!",
-                    suggestion = "Beli Dryer Gas Komersial (Rp9.5jt) agar pengeringan konsisten 45 menit bebas cuaca."
+                    cause = "Hujan turun! Jemuran biasa jadi lambat. Ketuk stasiun Kering untuk bantu angkat jemuran!",
+                    suggestion = "Beli Dryer Gas di Toko agar cucian cepat kering meski hujan."
                 )
             }
             setrikaKg >= 14.0 && setrikaStaff <= 1 -> {
@@ -736,8 +813,8 @@ class SimulationEngine(
                     phase = StationPhase.SETRIKA,
                     loadKg = setrikaKg,
                     waitMinutes = 90,
-                    cause = "Kapasitas setrika uap tidak sebanding dengan cucian kering. Hanya 1 pekerja.",
-                    suggestion = "Alihkan 1 staf dari Cuci ke Setrika atau upgrade ke Setrika Uap Boiler."
+                    cause = "Tumpukan baju di Setrika mulai tinggi! Ketuk meja Setrika untuk bantu menyetrika!",
+                    suggestion = "Pindahkan 1 staf ke Setrika atau beli Setrika Uap Boiler."
                 )
             }
             cuciKg >= 20.0 -> {
@@ -745,8 +822,8 @@ class SimulationEngine(
                     phase = StationPhase.CUCI,
                     loadKg = cuciKg,
                     waitMinutes = 75,
-                    cause = "Kapasitas mesin cuci 7 kg penuh, terjadi antrian putaran cucian.",
-                    suggestion = "Tambah 1 Mesin Cuci 7 kg atau upgrade ke mesin komersial 14 kg."
+                    cause = "Mesin cuci sedang penuh antrean! Ketuk Mesin Cuci atau pakai tombol ⚡ Turbo!",
+                    suggestion = "Tambah Mesin Cuci baru di Toko Alat agar cucian lebih cepat."
                 )
             }
             masukKg >= 20.0 -> {
@@ -754,18 +831,34 @@ class SimulationEngine(
                     phase = StationPhase.MASUK,
                     loadKg = masukKg,
                     waitMinutes = 45,
-                    cause = "Antrian penimbangan dan penyortiran baju kotor menumpuk di meja depan.",
-                    suggestion = "Tugaskan 1 orang di tahap Masuk saat jam sibuk kedatangan pelanggan."
+                    cause = "Banyak pelanggan menaruh baju kotor di Meja Kasir! Ketuk stasiun Masuk untuk timbang cepat!",
+                    suggestion = "Bantu sortir di stasiun Masuk agar langsung masuk ke Mesin Cuci."
                 )
             }
             else -> {
-                BottleneckDiagnosis(
-                    phase = StationPhase.SETRIKA,
-                    loadKg = setrikaKg,
-                    waitMinutes = 20,
-                    cause = "Operasi saat ini relatif seimbang dan stabil.",
-                    suggestion = "Pertahankan ritme kerja dan perhatikan ketepatan janji selesai."
-                )
+                // Pick whichever active station currently has the highest load so the guide always points to real work!
+                val busiest = StationPhase.values()
+                    .filter { it != StationPhase.SELESAI }
+                    .maxByOrNull { ph -> ordersList.filter { it.currentPhase == ph }.sumOf { it.weightKg } }
+                    ?: StationPhase.CUCI
+                val busiestKg = ordersList.filter { it.currentPhase == busiest }.sumOf { it.weightKg }
+                if (busiestKg > 0.0) {
+                    BottleneckDiagnosis(
+                        phase = busiest,
+                        loadKg = busiestKg,
+                        waitMinutes = 15,
+                        cause = "Ada ${busiestKg.toInt()} kg cucian di stasiun ${busiest.title}. Ketuk di Ruang 3D untuk mempercepat!",
+                        suggestion = "Ketuk langsung alat 3D ${busiest.icon} ${busiest.title} untuk dapat bonus XP!"
+                    )
+                } else {
+                    BottleneckDiagnosis(
+                        phase = StationPhase.SETRIKA,
+                        loadKg = setrikaKg,
+                        waitMinutes = 20,
+                        cause = "Semua stasiun lancar! Ketuk Meja Masuk (①) untuk panggil pelanggan baru!",
+                        suggestion = "Pertahankan kerja cepat agar pelanggan memberi bintang 5!"
+                    )
+                }
             }
         }
     }

@@ -15,11 +15,16 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sim.*
 import com.example.ui.theme.*
 
+/**
+ * Compact, Easy-to-Follow Kid-Friendly Tycoon HUD Header Bar.
+ * Designed so the 3D Laundry Diorama below it fits comfortably on screen without scrolling.
+ */
 @Composable
 fun CockpitHeaderBar(
     engine: SimulationEngine,
@@ -35,17 +40,17 @@ fun CockpitHeaderBar(
 ) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(22.dp),
+        shape = RoundedCornerShape(20.dp),
         border = CardDefaults.outlinedCardBorder().copy(
             brush = Brush.horizontalGradient(listOf(SkyTintBorder, MintTintBorder, SunnyTintBorder)),
             width = 1.5.dp
         ),
         modifier = modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(22.dp), spotColor = Color(0x1F0EA5E9))
+            .shadow(4.dp, RoundedCornerShape(20.dp), spotColor = Color(0x1F0EA5E9))
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            // Row 1: Level Badge, Store Tier Title, XP Bar, & Day/Clock Pill
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            // Row 1: Level Badge, Store Name & XP Progress + Day & Clock Pill
             val nextTierXp = GrowthTier.values()
                 .firstOrNull { it.levelNumber == engine.tycoonLevel + 1 }
                 ?.requiredXp
@@ -57,13 +62,16 @@ fun CockpitHeaderBar(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(10.dp))
                             .background(Brush.horizontalGradient(listOf(SunnyAmber, CoralRose)))
                             .clickable(enabled = onTestLevelUp != null) { onTestLevelUp?.invoke() }
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
                             .testTag("level_badge")
                     ) {
                         Text(
@@ -71,35 +79,36 @@ fun CockpitHeaderBar(
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = FontWeight.Black,
                                 color = Color.White,
-                                fontSize = 11.5.sp
+                                fontSize = 11.sp
                             )
                         )
                     }
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
                     Column {
                         Text(
                             text = engine.growthTier.title,
                             style = MaterialTheme.typography.titleSmall.copy(
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Slate900,
-                                fontSize = 13.sp
-                            )
+                                fontSize = 12.5.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.height(2.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             LinearProgressIndicator(
                                 progress = { xpProgress },
                                 modifier = Modifier
-                                    .width(80.dp)
-                                    .height(6.dp)
+                                    .width(68.dp)
+                                    .height(5.dp)
                                     .clip(RoundedCornerShape(3.dp)),
                                 color = SunnyAmber,
                                 trackColor = SunnyTintBg
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
                                 text = "${engine.currentXp}/$nextTierXp XP",
-                                fontSize = 9.5.sp,
+                                fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Slate500
                             )
@@ -110,43 +119,43 @@ fun CockpitHeaderBar(
                 // Clean Day, Clock & Weather Pill
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(10.dp))
                         .background(if (engine.isLabMode) LavenderTintBg else SkyTintBg)
                         .border(
                             1.dp,
                             if (engine.isLabMode) BerryLavender else SkyTintBorder,
-                            RoundedCornerShape(12.dp)
+                            RoundedCornerShape(10.dp)
                         )
-                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                        .padding(horizontal = 9.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (engine.isLabMode) "🧪 MODE LAB" else "Hari ${engine.currentDay} • ${engine.getFormattedTime()}",
-                        fontSize = 11.sp,
+                        text = if (engine.isLabMode) "🧪 LAB" else "Hari ${engine.currentDay} • ${engine.getFormattedTime()}",
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = if (engine.isLabMode) BerryLavenderDark else OceanBlueDeep
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = engine.weatherToday.icon, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = engine.weatherToday.icon, fontSize = 13.sp)
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // Row 2: 4 Clean Colorful Metric Pills (Kas, Selesai, Antrean, Reputasi/Streak)
+            // Row 2: 4 Kid-Friendly Metric Boxes (Uang Kas, Selesai, Antrean, Rating)
             val backlogKg = engine.ordersList.filter { !it.isCompleted }.sumOf { it.weightKg }
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 ColorfulHudMetricPill(
                     icon = "🪙",
-                    label = "Saldo Kas",
+                    label = "Uang Kas",
                     value = formatMoneyCompact(engine.cash),
                     bgColor = SunnyTintBg,
                     borderColor = SunnyTintBorder,
                     valueColor = SunnyAmberDark,
-                    modifier = Modifier.weight(1.15f)
+                    modifier = Modifier.weight(1.1f)
                 )
                 ColorfulHudMetricPill(
                     icon = "✨",
@@ -158,7 +167,7 @@ fun CockpitHeaderBar(
                     modifier = Modifier.weight(0.95f)
                 )
                 ColorfulHudMetricPill(
-                    icon = "⏳",
+                    icon = "🧺",
                     label = "Antrean",
                     value = "${backlogKg.toInt()} kg",
                     bgColor = if (backlogKg > 20) CoralTintBg else SkyTintBg,
@@ -168,60 +177,26 @@ fun CockpitHeaderBar(
                 )
                 ColorfulHudMetricPill(
                     icon = "⭐",
-                    label = "Rating • 🔥${engine.currentStreak}x",
+                    label = "Bintang",
                     value = "${String.format("%.1f", engine.reputationStars)}★",
                     bgColor = LavenderTintBg,
                     borderColor = LavenderTintBorder,
                     valueColor = BerryLavenderDark,
-                    modifier = Modifier.weight(1.05f)
+                    modifier = Modifier.weight(0.95f)
                 )
             }
 
-            // Real-time Task Completion Feedback Banner
-            val feedback = engine.latestCompletionFeedback
-            val isFreshFeedback = feedback != null && (System.currentTimeMillis() - feedback.timestamp < 3500)
-            if (isFreshFeedback) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Brush.horizontalGradient(listOf(MintEmerald, OceanBluePrimary)))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "✨ ${feedback.title}: ${feedback.subtitle}",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "+${feedback.xpEarned} XP ${if (feedback.comboCount > 1) "🔥x${feedback.comboCount}" else ""}",
-                            fontSize = 10.5.sp,
-                            fontWeight = FontWeight.Black,
-                            color = Color(0xFFFEF08A)
-                        )
-                    }
-                }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Row 3: Speed Controls & Colorful Booster Chips
+            // Row 3: Speed Controls & Quick Boosters in one clean row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Segmented Speed Control
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(9.dp))
                         .background(Slate100)
                         .padding(2.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp)
@@ -232,38 +207,37 @@ fun CockpitHeaderBar(
                     SpeedChip("5x", engine.simSpeed == SimSpeed.SPEED_5X) { onSpeedChanged(SimSpeed.SPEED_5X) }
                 }
 
-                // Colorful Boosters
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     GameBoosterChip("☕ Kopi", SunnyTintBg, SunnyTintBorder, SunnyAmberDark) { onCoffeeBoost() }
                     GameBoosterChip("⚡ Turbo", SkyTintBg, SkyTintBorder, OceanBlueDeep) { onTurboWash() }
                     GameBoosterChip("📢 Promo", MintTintBg, MintTintBorder, MintEmeraldDark) { onPromoFlyer() }
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(7.dp))
 
             // Row 4: Clean Management Action Bar (Toko, Lab, Tutup Hari)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 HudActionPill(
-                    label = "🏪 Toko & Staf",
+                    label = "🏪 Beli Alat & Staf",
                     bgColor = OceanBluePrimary,
                     tag = "btn_open_shop",
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1.1f),
                     onClick = onOpenShop
                 )
                 HudActionPill(
-                    label = if (engine.isLabMode) "🧪 Keluar Lab" else "🧪 Uji Lab",
+                    label = if (engine.isLabMode) "🧪 Keluar Lab" else "🧪 Coba di Lab",
                     bgColor = BerryLavender,
                     tag = "btn_open_lab",
                     modifier = Modifier.weight(1f),
                     onClick = onOpenLab
                 )
                 HudActionPill(
-                    label = "🌙 Tutup Hari",
+                    label = "🌙 Selesai Hari",
                     bgColor = MintEmerald,
                     tag = "btn_close_day",
                     modifier = Modifier.weight(1f),
@@ -286,25 +260,26 @@ private fun ColorfulHudMetricPill(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .padding(horizontal = 7.dp, vertical = 5.dp)
     ) {
         Text(
             text = "$icon $label",
-            fontSize = 9.sp,
+            fontSize = 8.5.sp,
             fontWeight = FontWeight.Bold,
             color = Slate600,
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
-        Spacer(modifier = Modifier.height(1.dp))
         Text(
             text = value,
-            fontSize = 12.5.sp,
+            fontSize = 11.5.sp,
             fontWeight = FontWeight.ExtraBold,
             color = valueColor,
-            maxLines = 1
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
     }
 }
@@ -322,13 +297,13 @@ private fun HudActionPill(
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
             .clickable { onClick() }
-            .padding(vertical = 7.dp, horizontal = 6.dp)
+            .padding(vertical = 6.dp)
             .testTag(tag),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            fontSize = 10.5.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.ExtraBold,
             color = Color.White,
             maxLines = 1
@@ -340,16 +315,16 @@ private fun HudActionPill(
 private fun SpeedChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(7.dp))
             .background(if (isSelected) OceanBluePrimary else Color.Transparent)
             .clickable { onClick() }
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Text(
             text = label,
-            fontSize = 10.5.sp,
-            fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Bold,
-            color = if (isSelected) Color.White else Slate600
+            fontSize = 10.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = if (isSelected) Color.White else Slate700
         )
     }
 }
@@ -364,17 +339,18 @@ private fun GameBoosterChip(
 ) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(9.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
-            .border(1.dp, borderColor, RoundedCornerShape(9.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
             .clickable { onClick() }
-            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .padding(horizontal = 7.dp, vertical = 4.dp)
     ) {
         Text(
             text = label,
-            fontSize = 10.sp,
+            fontSize = 9.5.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = textColor
+            color = textColor,
+            maxLines = 1
         )
     }
 }

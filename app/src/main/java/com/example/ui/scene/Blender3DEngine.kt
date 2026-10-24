@@ -3,17 +3,14 @@ package com.example.ui.scene
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import kotlin.math.*
 
 /**
  * True 3D Isometric Voxel / Low-Poly Diorama Engine & Stylized Toon/PBR Shader.
  * Supports multi-box 3D primitives, true isometric foreshortened cylindrical drums,
- * vertical cylinders, isometric cutaway rooms, and global painter's algorithm depth sorting.
+ * vertical cylinders, isometric floor rings, animated conveyor tracks, and cutaway rooms.
  */
 data class Vec3(val x: Float, val y: Float, val z: Float) {
     operator fun plus(other: Vec3) = Vec3(x + other.x, y + other.y, z + other.z)
@@ -296,6 +293,7 @@ object BlenderModelFactory {
 
 object BlenderRenderer {
 
+    // Optional camera skew factor (-0.20f .. +0.20f) for interactive 3D angle viewing
     var cameraSkewX: Float = 0f
 
     fun projectIso(
@@ -314,85 +312,10 @@ object BlenderRenderer {
     }
 
     fun isoPoint(originX: Float, originY: Float, scale: Float, x: Float, y: Float, z: Float): Offset {
+        val skew = cameraSkewX
+        val sx = originX + ((x - y) * 0.866f + (x + y) * skew) * scale
         val sy = originY + (x + y) * 0.5f * scale - z * scale
-        val sx = originX + (x - y) * 0.866f * scale + (sy - originY) * cameraSkewX
         return Offset(sx, sy)
-    }
-
-    fun drawIsoFloorRing(
-        drawScope: DrawScope,
-        originX: Float,
-        originY: Float,
-        scale: Float,
-        centerX: Float,
-        centerY: Float,
-        z: Float,
-        radius: Float,
-        color: Color,
-        strokeWidth: Float,
-        fillAlpha: Float = 0f
-    ) {
-        val segments = 24
-        val path = Path()
-        for (i in 0..segments) {
-            val angle = (i * 2.0 * PI / segments).toFloat()
-            val px = centerX + radius * cos(angle)
-            val py = centerY + radius * sin(angle)
-            val pt = isoPoint(originX, originY, scale, px, py, z)
-            if (i == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y)
-        }
-        path.close()
-        if (fillAlpha > 0f) {
-            drawScope.drawPath(path, color = color.copy(alpha = fillAlpha), style = Fill)
-        }
-        if (strokeWidth > 0f) {
-            drawScope.drawPath(path, color = color, style = Stroke(width = strokeWidth))
-        }
-    }
-
-    fun drawIsoConveyorTrack(
-        drawScope: DrawScope,
-        originX: Float,
-        originY: Float,
-        scale: Float,
-        x1: Float,
-        y1: Float,
-        x2: Float,
-        y2: Float,
-        flowProgress: Float,
-        trackColor: Color
-    ) {
-        val pStart = isoPoint(originX, originY, scale, x1, y1, 0.03f)
-        val pEnd = isoPoint(originX, originY, scale, x2, y2, 0.03f)
-
-        // Draw track shadow/outer rail
-        drawScope.drawLine(
-            color = trackColor.copy(alpha = 0.28f),
-            start = pStart,
-            end = pEnd,
-            strokeWidth = 6f,
-            cap = StrokeCap.Round
-        )
-
-        // Draw core animated dashed belt conveyor
-        drawScope.drawLine(
-            color = trackColor.copy(alpha = 0.75f),
-            start = pStart,
-            end = pEnd,
-            strokeWidth = 3f,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), flowProgress * 20f),
-            cap = StrokeCap.Round
-        )
-
-        // Pulse dot moving along the track
-        val dotX = x1 + (x2 - x1) * flowProgress
-        val dotY = y1 + (y2 - y1) * flowProgress
-        val dotPt = isoPoint(originX, originY, scale, dotX, dotY, 0.05f)
-        drawScope.drawCircle(
-            color = Color.White.copy(alpha = 0.9f),
-            radius = 3.5f,
-            center = dotPt
-        )
     }
 
     /**
@@ -413,7 +336,7 @@ object BlenderRenderer {
         topColor: Color,
         leftColor: Color,
         rightColor: Color,
-        strokeColor: Color? = Color.White.copy(alpha = 0.40f),
+        strokeColor: Color? = Color.White.copy(alpha = 0.45f),
         strokeWidth: Float = 1.1f
     ) {
         if (dx <= 0f || dy <= 0f || dz <= 0f) return
@@ -466,6 +389,84 @@ object BlenderRenderer {
     }
 
     /**
+     * Draws a 3D Isometric Ring/Circle on the horizontal Z plane (e.g. for Tap Shockwave Ripples & Station Highlights).
+     */
+    fun drawIsoFloorRing(
+        drawScope: DrawScope,
+        originX: Float,
+        originY: Float,
+        scale: Float,
+        centerX: Float,
+        centerY: Float,
+        z: Float = 0.04f,
+        radius: Float,
+        color: Color,
+        strokeWidth: Float = 3f,
+        fillAlpha: Float = 0f
+    ) {
+        val segs = 24
+        val pts = (0 until segs).map { i ->
+            val a = (i.toFloat() / segs) * 2f * PI.toFloat()
+            isoPoint(originX, originY, scale, centerX + cos(a) * radius, centerY + sin(a) * radius, z)
+        }
+        val ringPath = Path().apply {
+            moveTo(pts[0].x, pts[0].y)
+            for (i in 1 until segs) lineTo(pts[i].x, pts[i].y)
+            close()
+        }
+        if (fillAlpha > 0f) {
+            drawScope.drawPath(ringPath, color = color.copy(alpha = fillAlpha))
+        }
+        drawScope.drawPath(ringPath, color = color, style = Stroke(width = strokeWidth))
+    }
+
+    /**
+     * Draws an animated 3D Conveyor Path Strip on the floor connecting two stations,
+     * with moving chevrons showing the flow of laundry from step to step.
+     */
+    fun drawIsoConveyorTrack(
+        drawScope: DrawScope,
+        originX: Float,
+        originY: Float,
+        scale: Float,
+        x1: Float,
+        y1: Float,
+        x2: Float,
+        y2: Float,
+        flowProgress: Float,
+        trackColor: Color
+    ) {
+        val pStart = isoPoint(originX, originY, scale, x1, y1, 0.03f)
+        val pEnd = isoPoint(originX, originY, scale, x2, y2, 0.03f)
+
+        // Base glowing floor line
+        drawScope.drawLine(
+            color = trackColor.copy(alpha = 0.28f),
+            start = pStart,
+            end = pEnd,
+            strokeWidth = scale * 0.28f
+        )
+
+        // 3 Animated directional dots/chevrons moving along the segment
+        for (i in 0..2) {
+            val t = ((flowProgress + i * 0.33f) % 1.0f)
+            val cx = x1 + (x2 - x1) * t
+            val cy = y1 + (y2 - y1) * t
+            val pt = isoPoint(originX, originY, scale, cx, cy, 0.05f)
+            drawScope.drawCircle(
+                color = trackColor.copy(alpha = 0.85f),
+                radius = scale * 0.11f,
+                center = pt
+            )
+            drawScope.drawCircle(
+                color = Color.White,
+                radius = scale * 0.05f,
+                center = pt
+            )
+        }
+    }
+
+    /**
      * Draws a true 3D Isometric Extruded Circular Porthole Drum on a +Y facing appliance front face.
      * The circle is foreshortened in true 30° isometric perspective along the X-Z plane!
      */
@@ -485,7 +486,6 @@ object BlenderRenderer {
         spinDeg: Float = 0f
     ) {
         val segs = 20
-        // 1. Extruded outer rim cylinder sides
         val backPts = (0 until segs).map { i ->
             val a = (i.toFloat() / segs) * 2f * PI.toFloat()
             isoPoint(originX, originY, scale, centerX + cos(a) * radius, faceY, centerZ + sin(a) * radius)
@@ -516,7 +516,6 @@ object BlenderRenderer {
             drawScope.drawPath(quad, color = shade)
         }
 
-        // 2. Front Bevel Ring
         val outerRingPath = Path().apply {
             moveTo(frontPts[0].x, frontPts[0].y)
             for (i in 1 until segs) lineTo(frontPts[i].x, frontPts[i].y)
@@ -525,7 +524,6 @@ object BlenderRenderer {
         drawScope.drawPath(outerRingPath, color = Color.White)
         drawScope.drawPath(outerRingPath, color = rimColor, style = Stroke(width = 1.5f))
 
-        // 3. Inner Porthole Glass Dome
         val glassPath = Path().apply {
             moveTo(innerPts[0].x, innerPts[0].y)
             for (i in 1 until segs) lineTo(innerPts[i].x, innerPts[i].y)
@@ -533,7 +531,6 @@ object BlenderRenderer {
         }
         drawScope.drawPath(glassPath, color = glassColor)
 
-        // 4. Optional Animated 3D Isometric Swirl inside Drum
         if (swirlColor != null) {
             val startRad = (spinDeg * PI / 180f).toFloat()
             val swirlPath = Path().apply {
@@ -553,9 +550,22 @@ object BlenderRenderer {
                 close()
             }
             drawScope.drawPath(swirlPath, color = swirlColor)
+
+            // Secondary tumbling cloth lobe inside drum
+            val startRad2 = startRad + PI.toFloat()
+            val clothPt = isoPoint(
+                originX, originY, scale,
+                centerX + cos(startRad2) * (radius * 0.36f),
+                faceY + extrudeY * 0.8f,
+                centerZ + sin(startRad2) * (radius * 0.36f)
+            )
+            drawScope.drawCircle(
+                color = Color(0xFFFDA4AF),
+                radius = scale * radius * 0.24f,
+                center = clothPt
+            )
         }
 
-        // Specular glass highlight crescent
         val specPt = isoPoint(originX, originY, scale, centerX - radius * 0.25f, faceY + extrudeY, centerZ + radius * 0.28f)
         drawScope.drawCircle(color = Color.White.copy(alpha = 0.75f), radius = scale * radius * 0.18f, center = specPt)
     }
@@ -586,11 +596,9 @@ object BlenderRenderer {
             isoPoint(originX, originY, scale, centerX + cos(a) * radius, centerY + sin(a) * radius, baseZ + height)
         }
 
-        // Draw front-facing cylinder segments
         for (i in 0 until segs) {
             val next = (i + 1) % segs
             val midAngle = ((i + 0.5f) / segs) * 2f * PI.toFloat()
-            // In isometric view, front-facing segments have cos(a) + sin(a) > -0.2
             if (cos(midAngle) + sin(midAngle) > -0.35f) {
                 val quad = Path().apply {
                     moveTo(bottomPts[i].x, bottomPts[i].y)
@@ -604,7 +612,6 @@ object BlenderRenderer {
             }
         }
 
-        // Top Cap Ellipse
         val topPath = Path().apply {
             moveTo(topPts[0].x, topPts[0].y)
             for (i in 1 until segs) lineTo(topPts[i].x, topPts[i].y)

@@ -16,6 +16,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sim.SimulationEngine
@@ -23,7 +24,8 @@ import com.example.sim.formatMoneyCompact
 import com.example.ui.theme.*
 
 /**
- * Clean, Colorful Zero-Late Streak & Customer Satisfaction Banner Card.
+ * Clean, Compact, Single-Line-Safe Zero-Late Streak & Customer Satisfaction Banner Card.
+ * Fixes the narrow phone width wrapping bug where "+15% Bonus" wrapped vertically.
  */
 @Composable
 fun ZeroLateStreakCard(
@@ -34,10 +36,11 @@ fun ZeroLateStreakCard(
 ) {
     val info = engine.getZeroLateStreakInfo()
     val isFlawless = info.todayLateOrders == 0
+    val bonusPct = ((info.visualSatisfactionBonusMultiplier - 1.0) * 100).toInt()
 
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(16.dp),
         border = CardDefaults.outlinedCardBorder().copy(
             brush = Brush.horizontalGradient(
                 if (isFlawless) listOf(MintEmerald, OceanBluePrimary)
@@ -47,7 +50,7 @@ fun ZeroLateStreakCard(
         ),
         modifier = modifier
             .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(18.dp), spotColor = Color(0x1A10B981))
+            .shadow(3.dp, RoundedCornerShape(16.dp), spotColor = Color(0x1A10B981))
             .clickable { onOpenDetails() }
             .testTag("zero_late_streak_card")
     ) {
@@ -60,7 +63,7 @@ fun ZeroLateStreakCard(
                         else listOf(Color(0xFFFFF1F2), Color(0xFFFFFBEB))
                     )
                 )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -70,7 +73,7 @@ fun ZeroLateStreakCard(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
+                        .size(34.dp)
                         .clip(CircleShape)
                         .background(
                             if (isFlawless) Brush.linearGradient(listOf(MintEmerald, TealAccent))
@@ -80,46 +83,53 @@ fun ZeroLateStreakCard(
                 ) {
                     Text(
                         text = if (isFlawless) "🛡️" else "⚠️",
-                        fontSize = 18.sp
+                        fontSize = 16.sp
                     )
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text(
-                            text = "STREAK BEBAS TELAT • ${info.currentStreakDays} HARI",
-                            fontSize = 11.sp,
+                            text = "STREAK TEPAT WAKTU: ${info.currentStreakDays} HARI",
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Black,
-                            color = if (isFlawless) MintEmeraldDark else CoralRoseDark
+                            color = if (isFlawless) MintEmeraldDark else CoralRoseDark,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        Spacer(modifier = Modifier.width(6.dp))
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
                                 .background(SunnyTintBg)
                                 .border(1.dp, SunnyTintBorder, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 6.dp, vertical = 1.dp)
+                                .padding(horizontal = 5.dp, vertical = 1.dp)
                         ) {
                             Text(
-                                text = "+${((info.visualSatisfactionBonusMultiplier - 1.0) * 100).toInt()}% Bonus",
+                                text = "+$bonusPct%",
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = SunnyAmberDark
+                                color = SunnyAmberDark,
+                                maxLines = 1
                             )
                         }
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (isFlawless) {
-                            "${info.todayOnTimePercentage.toInt()}% On-Time Hari Ini • Bonus +${formatMoneyCompact(info.bonusCashAccumulated)}"
+                            "0 Telat Hari Ini • Hadiah +${formatMoneyCompact(info.bonusCashAccumulated)}"
                         } else {
-                            "${info.todayLateOrders} Pesanan Terlambat • Gunakan Kopi/Turbo!"
+                            "${info.todayLateOrders} Cucian Telat • Ketuk ruang 3D agar lebih cepat!"
                         },
-                        fontSize = 10.5.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = Slate600
+                        color = Slate600,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
@@ -135,16 +145,17 @@ fun ZeroLateStreakCard(
                     containerColor = if (!engine.satisfactionBonusClaimedToday) MintEmerald else Slate300
                 ),
                 shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                 modifier = Modifier
-                    .height(34.dp)
+                    .height(32.dp)
                     .testTag("claim_satisfaction_bonus_btn")
             ) {
                 Text(
-                    text = if (!engine.satisfactionBonusClaimedToday) "✨ Klaim" else "✅ Klaim",
-                    fontSize = 10.5.sp,
+                    text = if (!engine.satisfactionBonusClaimedToday) "🎁 Klaim" else "✅ Klaim",
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = if (!engine.satisfactionBonusClaimedToday) Color.White else Slate700
+                    color = if (!engine.satisfactionBonusClaimedToday) Color.White else Slate700,
+                    maxLines = 1
                 )
             }
         }

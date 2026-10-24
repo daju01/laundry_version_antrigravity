@@ -1,7 +1,6 @@
 package com.example.ui.cockpit
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,7 +41,6 @@ fun EquipmentShopModal(
                 .testTag("shop_dialog")
         ) {
             Column(modifier = Modifier.padding(18.dp)) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -50,11 +48,11 @@ fun EquipmentShopModal(
                 ) {
                     Column {
                         Text(
-                            text = "🏪 TOKO INVESTASI & REKRUTMEN",
+                            text = "🏪 TOKO ALAT & REKRUT STAF",
                             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary)
                         )
                         Text(
-                            text = "Kas: ${formatMoney(engine.cash)}",
+                            text = "Uang Kas: ${formatMoney(engine.cash)}",
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900)
                         )
                     }
@@ -83,14 +81,14 @@ fun EquipmentShopModal(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     item {
-                        Text("MESIN & PERALATAN PRODUKSI", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Slate500)
+                        Text("BELI MESIN BARU (BIAR CUCIAN CEPAT SELESAI)", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Slate500)
                     }
 
                     val shopAssets = listOf(
-                        Triple(AssetType.DRYER_GAS_10KG, "Bebas dari kendala hujan! Kering stabil 45 mnt.", "Sangat Direkomendasikan"),
-                        Triple(AssetType.SETRIKA_UAP_BOILER, "Setrika 1.6x lebih cepat, kurangi lelah staf.", "Atasi Bottleneck Setrika"),
-                        Triple(AssetType.MESIN_CUCI_7KG, "Tambah kapasitas cuci paralel +7 kg.", "Ekspansi Kapasitas"),
-                        Triple(AssetType.MESIN_CUCI_14KG, "Mesin cuci jumbo muat bedcover/karpet.", "Kapasitas Komersial")
+                        Triple(AssetType.DRYER_GAS_10KG, "Aman walau hujan deras! Baju kering cuma 45 menit.", "Anti-Hujan • Tahap 3"),
+                        Triple(AssetType.SETRIKA_UAP_BOILER, "Menyetrika jadi 1,6x lebih cepat dan staf tidak mudah capek.", "Anti-Macet • Tahap 4"),
+                        Triple(AssetType.MESIN_CUCI_7KG, "Tambah 1 mesin cuci lagi agar bisa mencuci bersamaan.", "Tambah Mesin • Tahap 2"),
+                        Triple(AssetType.MESIN_CUCI_14KG, "Mesin cuci raksasa, muat banyak cucian sekaligus!", "Kapasitas Besar • Tahap 2")
                     )
 
                     items(shopAssets) { (asset, benefit, tag) ->
@@ -124,7 +122,7 @@ fun EquipmentShopModal(
                                 Button(
                                     onClick = {
                                         val success = onBuyEquipment(asset)
-                                        feedbackMessage = if (success) "✅ Berhasil membeli ${asset.displayName}!" else "⚠️ Saldo kas belum cukup!"
+                                        feedbackMessage = if (success) "✅ Berhasil membeli ${asset.displayName}!" else "⚠️ Uang kas belum cukup!"
                                     },
                                     enabled = canAfford,
                                     colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
@@ -132,7 +130,7 @@ fun EquipmentShopModal(
                                     modifier = Modifier.fillMaxWidth().height(36.dp)
                                 ) {
                                     Text(
-                                        text = if (canAfford) "Beli & Pasang Sekarang" else "Kas Belum Cukup",
+                                        text = if (canAfford) "🛒 Beli & Pasang Sekarang" else "Uang Kas Belum Cukup",
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.ExtraBold
                                     )
@@ -143,7 +141,7 @@ fun EquipmentShopModal(
 
                     item {
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("REKRUTMEN TIM BARU", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Slate500)
+                        Text("TAMBAH PEKERJA BARU", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Slate500)
                     }
 
                     item {
@@ -161,8 +159,8 @@ fun EquipmentShopModal(
                                     horizontalArrangement = Arrangement.SpaceBetween
                                 ) {
                                     Column {
-                                        Text("👋 Rekrut Operator Baru", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
-                                        Text("Upah Rp90.000/hari • Siap ditempatkan", fontSize = 10.5.sp, color = Slate600)
+                                        Text("👋 Rekrut Pekerja Baru", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                                        Text("Gaji Rp90.000/hari • Langsung bantu kerja di ruang 3D!", fontSize = 10.5.sp, color = Slate600)
                                     }
                                     Text(formatMoney(hireCost), fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = MintEmeraldDark)
                                 }
@@ -172,14 +170,14 @@ fun EquipmentShopModal(
                                         val names = listOf("Rudi", "Nurul", "Agus", "Wati")
                                         val nextName = names[engine.workerList.size % names.size]
                                         val success = onHireStaff(nextName, StationPhase.SETRIKA)
-                                        feedbackMessage = if (success) "✅ Berhasil merekrut $nextName!" else "⚠️ Kas tidak cukup!"
+                                        feedbackMessage = if (success) "✅ Berhasil merekrut $nextName!" else "⚠️ Uang kas belum cukup!"
                                     },
                                     enabled = canHire,
                                     colors = ButtonDefaults.buttonColors(containerColor = MintEmerald),
                                     shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.fillMaxWidth().height(36.dp)
                                 ) {
-                                    Text("Rekrut Staf Sekarang", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text("➕ Rekrut Pekerja Sekarang", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                                 }
                             }
                         }
@@ -230,8 +228,8 @@ fun LabExperimentModal(
                         Text("🧪", fontSize = 20.sp)
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
-                            Text("LAB EKSPERIMEN SANDBOX", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = BerryLavender)
-                            Text("Simulasi Keputusan 7 Hari", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+                            Text("LAB PERCOBAAN 7 HARI", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = BerryLavender)
+                            Text("Coba Dulu Sebelum Beli!", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
                         }
                     }
                     IconButton(onClick = onDismiss, modifier = Modifier.size(32.dp)) {
@@ -241,9 +239,9 @@ fun LabExperimentModal(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                LabToggleRow("Beli Dryer Gas (Rp9.5jt)", "Hilangkan risiko hujan & percepat alur", testBuyDryer) { testBuyDryer = it }
-                LabToggleRow("Rekrut 1 Staf Setrika", "Atasi antrean setrika uap", testHireStaff) { testHireStaff = it }
-                LabToggleRow("Jalankan Lembur 7 Hari", "Operasi ekstra untuk kejar pesanan", testOvertime) { testOvertime = it }
+                LabToggleRow("Beli Dryer Gas (Rp9,5jt)", "Cucian cepat kering walau hujan", testBuyDryer) { testBuyDryer = it }
+                LabToggleRow("Rekrut 1 Staf Setrika", "Bantu menyetrika biar tidak menumpuk", testHireStaff) { testHireStaff = it }
+                LabToggleRow("Tambah Jam Lembur", "Toko buka 2 jam lebih lama", testOvertime) { testOvertime = it }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -254,15 +252,15 @@ fun LabExperimentModal(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text("PROYEKSI LABA 7 HARI KE DEPAN:", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = BerryLavenderDark)
+                        Text("HASIL PERKIRAAN UNTUNG 7 HARI:", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = BerryLavenderDark)
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Kondisi Saat Ini", fontSize = 11.5.sp, color = Slate600)
+                            Text("Untung Sekarang", fontSize = 11.5.sp, color = Slate600)
                             Text(formatMoney(baseline7DayProfit), fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Slate900)
                         }
                         Spacer(modifier = Modifier.height(3.dp))
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text("Setelah Keputusan", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = BerryLavenderDark)
+                            Text("Untung Setelah Dicoba", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = BerryLavenderDark)
                             Text(
                                 text = formatMoney(exp7DayProfit),
                                 fontSize = 12.5.sp,
@@ -272,7 +270,7 @@ fun LabExperimentModal(
                         }
                         if (investCost > 0) {
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text("Modal Investasi Awal: ${formatMoney(investCost)}", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = CoralRoseDark)
+                            Text("Uang yang Dibutuhkan: ${formatMoney(investCost)}", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = CoralRoseDark)
                         }
                     }
                 }
@@ -285,7 +283,7 @@ fun LabExperimentModal(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1f).height(42.dp)
                     ) {
-                        Text("Batal", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate600)
+                        Text("Tutup", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Slate600)
                     }
 
                     Button(
@@ -294,7 +292,7 @@ fun LabExperimentModal(
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.weight(1.5f).height(42.dp).testTag("btn_apply_lab")
                     ) {
-                        Text("Terapkan ke Usaha", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                        Text("Pasang ke Toko!", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
                     }
                 }
             }
@@ -341,35 +339,53 @@ fun OnboardingTutorialDialog(
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
                 Text(
-                    text = "PANDUAN MULAI CEPAT (${step}/3)",
-                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary, letterSpacing = 1.sp)
+                    text = "💡 CARA MAIN MUDAH (LANGKAH ${step} DARI 4)",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.ExtraBold, color = OceanBluePrimary, letterSpacing = 0.8.sp)
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
 
                 when (step) {
                     1 -> {
-                        Text("1. Kelola Studio 3D & Kecepatan Waktu", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
+                        Text("1️⃣ Urutan Cucian: Nomor 1 sampai 6!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Amati alur laundry 3D isometrik Anda dari meja Masuk, Cuci, Jemur/Dryer, Setrika, Packing, hingga Selesai. Gunakan tombol kecepatan [1x] [2x] [5x] untuk mengatur waktu.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Slate600, lineHeight = 18.sp)
+                            "Baju kotor pelanggan berjalan berurutan melalui 6 tempat:\n" +
+                                "• 1. 🧺 Masuk (Timbang baju kotor)\n" +
+                                "• 2. 🫧 Cuci (Masuk mesin cuci)\n" +
+                                "• 3. ☀️ Kering (Jemur / Dryer)\n" +
+                                "• 4. 💨 Setrika (Biar licin & rapi)\n" +
+                                "• 5. 📦 Packing (Lipat & bungkus)\n" +
+                                "• 6. ✨ Selesai (Terima uang kas!)",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate700, lineHeight = 18.sp)
                         )
                     }
                     2 -> {
-                        Text("2. Ketuk Stasiun 3D untuk Tap-Boost & Upgrade", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
+                        Text("2️⃣ Ketuk Alat 3D untuk Bantu Bekerja!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Ketuk langsung mesin 3D atau pilih nama stasiun di bagian bawah untuk mempercepat pekerjaan (+XP) sekaligus membuka panel penugasan staf.",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Slate600, lineHeight = 18.sp)
+                            "Ruang 3D bukan cuma gambar pajangan! Ketuk langsung Mesin Cuci, Jemuran, atau Meja Setrika di Ruang 3D (atau tombol ⚡ Bantu!) untuk mempercepat pekerjaan dan langsung dapat bintang XP!",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate700, lineHeight = 18.sp)
                         )
                     }
                     3 -> {
-                        Text("3. Sinkronkan ke Simulator Bisnis & ERP", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
+                        Text("3️⃣ Pakai Kopi, Turbo & Pindahkan Pekerja!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            "Gunakan bar di bagian atas layar untuk berpindah ke Kalkulator BEP, Unit Economics, dan Simulator What-If kapan saja!",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Slate600, lineHeight = 18.sp)
+                            "Kalau Budi atau Siti mulai lelah (😴), klik tombol ☕ Kopi! Kalau ada stasiun yang menumpuk, klik tombol 🔧 Atur untuk memindahkan pekerja ke stasiun yang sibuk.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate700, lineHeight = 18.sp)
+                        )
+                    }
+                    4 -> {
+                        Text("4️⃣ Ikuti 4 Tab di Bawah Satu per Satu!", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold, color = Slate900))
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            "Supaya tidak pusing, layar dibagi rapi menjadi 4 menu bertahap:\n" +
+                                "• 1. Ruang 3D: Tempat bermain & pantau toko\n" +
+                                "• 2. Alur: Lihat antrean 6 stasiun & daftar order\n" +
+                                "• 3. Tim & Alat: Rekrut pekerja, beli mesin & klaim misi\n" +
+                                "• 4. Kas & Lab: Lihat tabungan uang, BEP & simulator bisnis!",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate700, lineHeight = 18.sp)
                         )
                     }
                 }
@@ -379,7 +395,7 @@ fun OnboardingTutorialDialog(
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     if (step > 1) {
                         TextButton(onClick = { step-- }) {
-                            Text("Kembali", color = Slate600, fontWeight = FontWeight.Bold)
+                            Text("⬅️ Sebelumnya", color = Slate600, fontWeight = FontWeight.Bold)
                         }
                     } else {
                         Spacer(modifier = Modifier.width(1.dp))
@@ -387,12 +403,12 @@ fun OnboardingTutorialDialog(
 
                     Button(
                         onClick = {
-                            if (step < 3) step++ else onDismiss()
+                            if (step < 4) step++ else onDismiss()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
                         shape = RoundedCornerShape(10.dp)
                     ) {
-                        Text(if (step < 3) "Lanjut" else "Mulai Sekarang!", fontWeight = FontWeight.ExtraBold)
+                        Text(if (step < 4) "Lanjut ➔" else "🚀 Ayo Mulai Main!", fontWeight = FontWeight.ExtraBold)
                     }
                 }
             }

@@ -20,7 +20,7 @@ data class GameUiState(
     val engine: SimulationEngine = SimulationEngine(),
     val labEngine: SimulationEngine? = null,
     val isLabModeActive: Boolean = false,
-    val selectedPhase: StationPhase? = null,
+    val selectedPhase: StationPhase? = StationPhase.CUCI,
 
     // Dialog & UI Visibility
     val isOnboardingOpen: Boolean = false,
@@ -89,13 +89,24 @@ class GameCockpitViewModel : ViewModel() {
         emitEngineUpdate()
     }
 
-    // Station inspection
+    /**
+     * Focuses a station in the 3D scene and triggers a live 3D tap boost
+     * WITHOUT blocking the screen with a modal dialog.
+     */
+    fun focusAndBoostStation(phase: StationPhase) {
+        val state = _uiState.value
+        val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
+        activeEngine.interactWithStation(phase)
+        emitEngineUpdate { it.copy(selectedPhase = phase) }
+    }
+
+    // Station inspection modal (opened when user clicks "Atur / Detail Stasiun")
     fun selectStationPhase(phase: StationPhase) {
         emitEngineUpdate { it.copy(selectedPhase = phase, isStationInspectorOpen = true) }
     }
 
     fun closeStationInspector() {
-        emitEngineUpdate { it.copy(isStationInspectorOpen = false, selectedPhase = null) }
+        emitEngineUpdate { it.copy(isStationInspectorOpen = false) }
     }
 
     // Reassign worker
@@ -271,7 +282,7 @@ class GameCockpitViewModel : ViewModel() {
         val state = _uiState.value
         val activeEngine = if (state.isLabModeActive && state.labEngine != null) state.labEngine else state.engine
         activeEngine.interactWithStation(phase)
-        emitEngineUpdate()
+        emitEngineUpdate { it.copy(selectedPhase = phase) }
     }
 
     fun claimLevelUp() {

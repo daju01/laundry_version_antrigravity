@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.sim.*
@@ -27,12 +28,23 @@ import com.example.ui.theme.*
 import com.example.viewmodel.GameCockpitViewModel
 import com.example.viewmodel.GameUiState
 
+/**
+ * Step-by-Step, Kid-Friendly Progressive Game & Operations Screen.
+ * - Tab 0 (Ruang 3D): Shows the Compact HUD, Smart "Apa yang Harus Dilakukan Sekarang?" Guide,
+ *   the Full Unobstructed 3D Isometric Laundry Studio, Streak Card, and Quick Quests.
+ * - Tab 1 (Alur Cucian): Focused step-by-step view of all 6 Laundry Stations + Direct Boost/Manage buttons
+ *   + 1-tap switch to Full Customer Order Queue (ERP Operasi).
+ * - Tab 2 (Tim & Alat): Focused view of Staff, Machines, Shop, and Daily Quests (zero cut-off buttons).
+ * - Tab 3 (Celengan Kas): Focused view of Today's Cash, Profit/Loss, Level Progress, and 1-tap links
+ *   to KPI Dashboard, BEP Calculator, and What-If Business Simulator.
+ */
 @Composable
 fun MainGameCockpitScreen(
     viewModel: GameCockpitViewModel,
     uiState: GameUiState,
     externalDetailTab: Int? = null,
     onDetailTabChanged: ((Int) -> Unit)? = null,
+    onOpenErpMode: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val activeEngine = if (uiState.isLabModeActive && uiState.labEngine != null) uiState.labEngine else uiState.engine
@@ -41,15 +53,22 @@ fun MainGameCockpitScreen(
     }
 
     var internalDetailTab by remember { mutableIntStateOf(0) }
+    val scrollState = rememberScrollState()
+
     LaunchedEffect(externalDetailTab) {
-        if (externalDetailTab != null) {
+        if (externalDetailTab != null && externalDetailTab != internalDetailTab) {
             internalDetailTab = externalDetailTab
+            scrollState.scrollTo(0)
         }
     }
     val selectedDetailTab = externalDetailTab ?: internalDetailTab
     val selectTab: (Int) -> Unit = { idx ->
         internalDetailTab = idx
         onDetailTabChanged?.invoke(idx)
+    }
+
+    LaunchedEffect(selectedDetailTab) {
+        scrollState.scrollTo(0)
     }
 
     Column(
@@ -60,141 +79,38 @@ fun MainGameCockpitScreen(
                     listOf(AppCanvasBg, AppCanvasSecondaryBg)
                 )
             )
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 14.dp)
-            .padding(top = 10.dp, bottom = 92.dp)
+            .verticalScroll(scrollState)
+            .padding(horizontal = 12.dp)
+            .padding(top = 8.dp, bottom = 92.dp)
     ) {
-        // 1. CLEAN COLORFUL TYCOON HUD HEADER BAR
-        CockpitHeaderBar(
-            engine = activeEngine,
-            onSpeedChanged = { viewModel.setSpeed(it) },
-            onOpenLab = {
-                if (uiState.isLabModeActive) {
-                    viewModel.exitLabMode()
-                } else {
-                    viewModel.openLabModal()
-                }
-            },
-            onOpenShop = { viewModel.openShop() },
-            onManualCloseDay = { viewModel.manualCloseDay() },
-            onCoffeeBoost = { viewModel.giveCoffeeBoost() },
-            onTurboWash = { viewModel.activateTurboWash() },
-            onPromoFlyer = { viewModel.triggerPromoFlyer() },
-            onTestLevelUp = { viewModel.triggerTestLevelUp() }
-        )
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // 1.5. COMPACT STREAK & SATISFACTION BANNER
-        ZeroLateStreakCard(
-            engine = activeEngine,
-            onOpenDetails = { viewModel.openZeroLateStreakModal() },
-            onClaimSatisfactionBonus = { viewModel.claimVisualSatisfactionBonus() }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 2. TRUE 3D ISOMETRIC CUTAWAY DIORAMA SCENE
-        Laundry3DScene(
-            engine = activeEngine,
-            selectedPhase = uiState.selectedPhase,
-            onSelectPhase = { viewModel.selectStationPhase(it) },
-            onInteractStation = { viewModel.interactWithStation(it) }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 3. CLEAN BOTTLENECK STATUS & ACTION CARD
-        val isHeavyBottleneck = bottleneck.loadKg >= 12.0
-        Card(
-            colors = CardDefaults.cardColors(
-                containerColor = if (isHeavyBottleneck) CoralTintBg else MintTintBg
-            ),
-            shape = RoundedCornerShape(16.dp),
-            border = CardDefaults.outlinedCardBorder().copy(
-                brush = androidx.compose.ui.graphics.SolidColor(
-                    if (isHeavyBottleneck) CoralRose else MintEmerald
-                )
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { viewModel.selectStationPhase(bottleneck.phase) }
-                .testTag("bottleneck_summary_card")
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(if (isHeavyBottleneck) CoralRose else MintEmerald),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(if (isHeavyBottleneck) "🚨" else "✅", fontSize = 16.sp)
-                }
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "FOKUS STASIUN: ${bottleneck.phase.title.uppercase()} (${bottleneck.loadKg.toInt()} kg)",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = if (isHeavyBottleneck) CoralRoseDark else MintEmeraldDark
-                        )
-                    )
-                    Text(
-                        text = bottleneck.cause,
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Slate800,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        ),
-                        maxLines = 2
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isHeavyBottleneck) CoralRose else MintEmerald)
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text("Kelola", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 4. COLORFUL SUB-PANEL TABS
+        // STEP NAVIGATION PILLS (Clear 1-2-3-4 Progressive Guide)
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             DetailTabButton(
-                label = "🎯 Misi",
-                accentColor = SunnyAmberDark,
+                label = "1. 🏠 3D",
+                accentColor = OceanBluePrimary,
                 isSelected = selectedDetailTab == 0,
                 onClick = { selectTab(0) },
                 modifier = Modifier.weight(1f)
             )
             DetailTabButton(
-                label = "🧺 Alur",
-                accentColor = OceanBluePrimary,
+                label = "2. 🧺 Alur",
+                accentColor = MintEmerald,
                 isSelected = selectedDetailTab == 1,
                 onClick = { selectTab(1) },
                 modifier = Modifier.weight(1f)
             )
             DetailTabButton(
-                label = "👥 Tim",
+                label = "3. 👥 Tim",
                 accentColor = TealAccent,
                 isSelected = selectedDetailTab == 2,
                 onClick = { selectTab(2) },
                 modifier = Modifier.weight(1f)
             )
             DetailTabButton(
-                label = "📊 Kas",
+                label = "4. 💰 Kas",
                 accentColor = BerryLavender,
                 isSelected = selectedDetailTab == 3,
                 onClick = { selectTab(3) },
@@ -202,18 +118,157 @@ fun MainGameCockpitScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         when (selectedDetailTab) {
-            0 -> QuestsTabContent(
-                engine = activeEngine,
-                onClaim = { viewModel.claimQuest(it) },
-                onTestLevelUp = { viewModel.triggerTestLevelUp() },
-                onTestStreak = { viewModel.triggerTestStreak() }
-            )
-            1 -> PipelineTabContent(activeEngine, onSelectPhase = { viewModel.selectStationPhase(it) })
-            2 -> TeamAndAssetsTabContent(activeEngine, onOpenShop = { viewModel.openShop() }, onBoostCoffee = { viewModel.giveCoffeeBoost() })
-            3 -> FinanceAndTierTabContent(activeEngine)
+            0 -> {
+                // =========================================================================
+                // STEP 1: RUANG 3D LAUNDRY (Fokus Bermain & Ketuk Alat 3D)
+                // =========================================================================
+                CockpitHeaderBar(
+                    engine = activeEngine,
+                    onSpeedChanged = { viewModel.setSpeed(it) },
+                    onOpenLab = {
+                        if (uiState.isLabModeActive) {
+                            viewModel.exitLabMode()
+                        } else {
+                            viewModel.openLabModal()
+                        }
+                    },
+                    onOpenShop = { viewModel.openShop() },
+                    onManualCloseDay = { viewModel.manualCloseDay() },
+                    onCoffeeBoost = { viewModel.giveCoffeeBoost() },
+                    onTurboWash = { viewModel.activateTurboWash() },
+                    onPromoFlyer = { viewModel.triggerPromoFlyer() },
+                    onTestLevelUp = { viewModel.triggerTestLevelUp() }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // SMART KID-FRIENDLY GUIDE BANNER ("Apa yang Harus Dilakukan Sekarang?")
+                SmartNextStepBanner(
+                    bottleneck = bottleneck,
+                    onBoostPhase = { viewModel.focusAndBoostStation(bottleneck.phase) },
+                    onInspectPhase = { viewModel.selectStationPhase(bottleneck.phase) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // UNOBSTRUCTED, REACTIVE 3D ISOMETRIC CUTAWAY DIORAMA SCENE
+                Laundry3DScene(
+                    engine = activeEngine,
+                    selectedPhase = uiState.selectedPhase,
+                    onSelectPhase = { viewModel.focusAndBoostStation(it) },
+                    onInteractStation = { viewModel.focusAndBoostStation(it) },
+                    onOpenInspector = { viewModel.selectStationPhase(it) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // COMPACT STREAK & SATISFACTION BANNER
+                ZeroLateStreakCard(
+                    engine = activeEngine,
+                    onOpenDetails = { viewModel.openZeroLateStreakModal() },
+                    onClaimSatisfactionBonus = { viewModel.claimVisualSatisfactionBonus() }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // DAILY QUESTS & SIMULATION TRIGGERS
+                QuestsTabContent(
+                    engine = activeEngine,
+                    onClaim = { viewModel.claimQuest(it) },
+                    onTestLevelUp = { viewModel.triggerTestLevelUp() },
+                    onTestStreak = { viewModel.triggerTestStreak() }
+                )
+            }
+
+            1 -> {
+                // =========================================================================
+                // STEP 2: ALUR 6 STASIUN & ANTREAN ORDER (Bersih tanpa terpotong kartu 3D!)
+                // =========================================================================
+                StepGuideHeaderCard(
+                    stepTitle = "Langkah 2: Urutan Proses Cucian (1 sampai 6)",
+                    stepSubtitle = "Cucian masuk dari tahap 1 sampai 6. Ketuk tombol '⚡ Bantu' untuk mempercepat cucian, atau '🔧 Atur' untuk memindahkan pekerja!",
+                    accentColor = MintEmerald,
+                    actionLabel = "📋 Buka Daftar Order Lengkap",
+                    onActionClick = { onOpenErpMode?.invoke("OPERASI") }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                SmartNextStepBanner(
+                    bottleneck = bottleneck,
+                    onBoostPhase = { viewModel.focusAndBoostStation(bottleneck.phase) },
+                    onInspectPhase = { viewModel.selectStationPhase(bottleneck.phase) }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                PipelineTabContent(
+                    engine = activeEngine,
+                    onBoostPhase = { viewModel.focusAndBoostStation(it) },
+                    onSelectPhase = { viewModel.selectStationPhase(it) }
+                )
+            }
+
+            2 -> {
+                // =========================================================================
+                // STEP 3: TIM PEKERJA, MESIN & MISI (Bersih, tombol tidak terpotong!)
+                // =========================================================================
+                StepGuideHeaderCard(
+                    stepTitle = "Langkah 3: Kelola Pekerja, Mesin & Misi Hadiah",
+                    stepSubtitle = "Jaga energi Budi & Siti di atas 50% dengan Kopi, beli mesin baru di Toko saat uang cukup, dan klaim hadiah misi harianmu!",
+                    accentColor = TealAccent,
+                    actionLabel = "⚙️ Atur Tarif & Kapasitas Toko",
+                    onActionClick = { onOpenErpMode?.invoke("SETTING") }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                TeamAndAssetsTabContent(
+                    engine = activeEngine,
+                    onOpenShop = { viewModel.openShop() },
+                    onBoostCoffee = { viewModel.giveCoffeeBoost() }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                ZeroLateStreakCard(
+                    engine = activeEngine,
+                    onOpenDetails = { viewModel.openZeroLateStreakModal() },
+                    onClaimSatisfactionBonus = { viewModel.claimVisualSatisfactionBonus() }
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                QuestsTabContent(
+                    engine = activeEngine,
+                    onClaim = { viewModel.claimQuest(it) },
+                    onTestLevelUp = { viewModel.triggerTestLevelUp() },
+                    onTestStreak = { viewModel.triggerTestStreak() }
+                )
+            }
+
+            3 -> {
+                // =========================================================================
+                // STEP 4: CELENGAN KAS, LABA-RUGI & SIMULATOR BISNIS LENGKAP
+                // =========================================================================
+                StepGuideHeaderCard(
+                    stepTitle = "Langkah 4: Celengan Uang & Kalkulator Bisnis",
+                    stepSubtitle = "Lihat uang masuk hari ini, hitung kapan balik modal (BEP), atau coba eksperimen harga di Lab Simulator!",
+                    accentColor = BerryLavender,
+                    actionLabel = "🎛️ Buka Simulator Bisnis",
+                    onActionClick = { onOpenErpMode?.invoke("SIMULATOR") }
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                FinanceAndTierTabContent(
+                    engine = activeEngine,
+                    onOpenErpMode = onOpenErpMode
+                )
+            }
         }
     }
 
@@ -292,6 +347,129 @@ fun MainGameCockpitScreen(
 }
 
 @Composable
+private fun SmartNextStepBanner(
+    bottleneck: BottleneckDiagnosis,
+    onBoostPhase: () -> Unit,
+    onInspectPhase: () -> Unit
+) {
+    val isHeavyBottleneck = bottleneck.loadKg >= 12.0
+    val bannerColor = if (isHeavyBottleneck) CoralRose else MintEmerald
+    val bannerBg = if (isHeavyBottleneck) CoralTintBg else MintTintBg
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = bannerBg),
+        shape = RoundedCornerShape(16.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(bannerColor)
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onInspectPhase() }
+            .testTag("bottleneck_summary_card")
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(bannerColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(if (isHeavyBottleneck) "🚨" else "💡", fontSize = 15.sp)
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "PETUNJUK SEKARANG: ${bottleneck.phase.icon} ${bottleneck.phase.title.uppercase()} (${bottleneck.loadKg.toInt()} kg)",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.ExtraBold,
+                        color = if (isHeavyBottleneck) CoralRoseDark else MintEmeraldDark,
+                        fontSize = 10.5.sp
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = bottleneck.cause,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Slate800,
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        lineHeight = 14.sp
+                    ),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(bannerColor)
+                    .clickable { onBoostPhase() }
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+            ) {
+                Text("⚡ Bantu", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun StepGuideHeaderCard(
+    stepTitle: String,
+    stepSubtitle: String,
+    accentColor: Color,
+    actionLabel: String? = null,
+    onActionClick: (() -> Unit)? = null
+) {
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(18.dp),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(accentColor.copy(alpha = 0.45f))
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = stepTitle,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = accentColor
+            )
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = stepSubtitle,
+                fontSize = 11.sp,
+                color = Slate700,
+                lineHeight = 15.sp
+            )
+            if (actionLabel != null && onActionClick != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onActionClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().height(34.dp)
+                ) {
+                    Text(
+                        text = actionLabel,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DetailTabButton(
     label: String,
     accentColor: Color,
@@ -301,19 +479,20 @@ private fun DetailTabButton(
 ) {
     Box(
         modifier = modifier
-            .shadow(if (isSelected) 4.dp else 0.dp, RoundedCornerShape(12.dp))
+            .shadow(if (isSelected) 3.dp else 0.dp, RoundedCornerShape(12.dp))
             .clip(RoundedCornerShape(12.dp))
             .background(if (isSelected) accentColor else Color.White)
             .border(1.dp, if (isSelected) accentColor else CardBorderLight, RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(vertical = 9.dp),
+            .padding(vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            fontSize = 11.5.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = if (isSelected) Color.White else Slate700
+            color = if (isSelected) Color.White else Slate700,
+            maxLines = 1
         )
     }
 }
@@ -333,7 +512,7 @@ private fun QuestsTabContent(
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "🎯 MISI HARIAN TYCOON",
+                text = "🎯 MISI HARIAN BERHADIAH (SELESAIKAN & KLAIM UANG!)",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = SunnyAmberDark
@@ -436,7 +615,7 @@ private fun QuestsTabContent(
                         .height(38.dp)
                         .testTag("btn_trigger_test_level_up")
                 ) {
-                    Text("⭐ Simulasi Naik Level", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text("⭐ Coba Naik Level", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
                 }
 
                 Button(
@@ -448,7 +627,7 @@ private fun QuestsTabContent(
                         .height(38.dp)
                         .testTag("btn_trigger_test_streak")
                 ) {
-                    Text("🔥 Simulasi Streak", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                    Text("🔥 Coba Streak", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
                 }
             }
         }
@@ -456,7 +635,11 @@ private fun QuestsTabContent(
 }
 
 @Composable
-private fun PipelineTabContent(engine: SimulationEngine, onSelectPhase: (StationPhase) -> Unit) {
+private fun PipelineTabContent(
+    engine: SimulationEngine,
+    onBoostPhase: (StationPhase) -> Unit,
+    onSelectPhase: (StationPhase) -> Unit
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -465,7 +648,7 @@ private fun PipelineTabContent(engine: SimulationEngine, onSelectPhase: (Station
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "6 STASIUN OPERASIONAL (KETUK UNTUK DETAIL):",
+                text = "URUTAN 6 STASIUN LAUNDRY (KETUK UNTUK BANTU / ATUR):",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = OceanBlueDeep
@@ -477,44 +660,96 @@ private fun PipelineTabContent(engine: SimulationEngine, onSelectPhase: (Station
                 val phaseKg = phaseOrders.sumOf { it.weightKg }
                 val assignedCount = engine.workerList.count { it.assignedPhase == phase }
                 val phaseColor = Color(phase.colorHex)
+                val progress = if (phaseKg > 0) engine.getPhaseProgressFraction(phase) else 0f
 
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(14.dp))
                         .background(phaseColor.copy(alpha = 0.08f))
-                        .border(1.dp, phaseColor.copy(alpha = 0.25f), RoundedCornerShape(12.dp))
+                        .border(1.dp, phaseColor.copy(alpha = 0.30f), RoundedCornerShape(14.dp))
                         .clickable { onSelectPhase(phase) }
-                        .padding(horizontal = 12.dp, vertical = 9.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(phaseColor),
-                            contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
                         ) {
-                            Text(phase.icon, fontSize = 14.sp)
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(phaseColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(phase.icon, fontSize = 15.sp)
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Tahap ${phase.step}: ${phase.title}",
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = "$assignedCount pekerja • ${phaseOrders.size} tumpukan (${phaseKg.toInt()} kg)",
+                                    fontSize = 10.5.sp,
+                                    color = Slate600
+                                )
+                            }
                         }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text("${phase.step}. ${phase.title}", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
-                            Text("$assignedCount staf ditugaskan • ${phaseOrders.size} batch", fontSize = 10.5.sp, color = Slate600)
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(phaseColor)
+                                    .clickable { onBoostPhase(phase) }
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "⚡ Bantu",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color.White)
+                                    .border(1.dp, phaseColor, RoundedCornerShape(8.dp))
+                                    .clickable { onSelectPhase(phase) }
+                                    .padding(horizontal = 8.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = "🔧 Atur",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = phaseColor
+                                )
+                            }
                         }
                     }
 
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color.White)
-                            .border(1.dp, phaseColor, RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
-                    ) {
-                        Text("${phaseKg.toInt()} kg", fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = phaseColor)
+                    if (phaseKg > 0.0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress = { progress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = phaseColor,
+                            trackColor = Color.White
+                        )
                     }
                 }
             }
@@ -523,7 +758,11 @@ private fun PipelineTabContent(engine: SimulationEngine, onSelectPhase: (Station
 }
 
 @Composable
-private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> Unit, onBoostCoffee: () -> Unit) {
+private fun TeamAndAssetsTabContent(
+    engine: SimulationEngine,
+    onOpenShop: () -> Unit,
+    onBoostCoffee: () -> Unit
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -531,40 +770,56 @@ private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> 
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "👷 TIM OPERATOR LAUNDRY (${engine.workerList.size} ORANG)",
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = TealAccent
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Clean two-column equal-width action row so button text is NEVER cut off!
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "TIM OPERATOR (${engine.workerList.size} ORANG)",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = TealAccent
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Button(
-                        onClick = onBoostCoffee,
-                        colors = ButtonDefaults.buttonColors(containerColor = SunnyAmber),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text("☕ Kopi Staf", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                    }
-                    Button(
-                        onClick = onOpenShop,
-                        colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 2.dp),
-                        modifier = Modifier.height(28.dp)
-                    ) {
-                        Text("+ Rekrut & Alat", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
-                    }
+                Button(
+                    onClick = onBoostCoffee,
+                    colors = ButtonDefaults.buttonColors(containerColor = SunnyAmber),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                ) {
+                    Text(
+                        text = "☕ Beri Kopi Staf",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                }
+                Button(
+                    onClick = onOpenShop,
+                    colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(36.dp)
+                ) {
+                    Text(
+                        text = "➕ Rekrut & Beli Alat",
+                        fontSize = 10.5.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        maxLines = 1
+                    )
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             engine.workerList.forEach { worker ->
                 Row(
@@ -580,7 +835,7 @@ private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> 
                 ) {
                     Column {
                         Text("${worker.name} ${worker.moodEmoji}", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
-                        Text("Stasiun: ${worker.assignedPhase.title}", fontSize = 10.5.sp, color = Slate600)
+                        Text("Tugas Sekarang: Tahap ${worker.assignedPhase.step} (${worker.assignedPhase.title})", fontSize = 10.5.sp, color = Slate600)
                     }
 
                     Column(horizontalAlignment = Alignment.End) {
@@ -590,7 +845,7 @@ private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> 
                         LinearProgressIndicator(
                             progress = { worker.energyPercent / 100f },
                             modifier = Modifier
-                                .width(68.dp)
+                                .width(72.dp)
                                 .height(6.dp)
                                 .clip(RoundedCornerShape(3.dp)),
                             color = energyColor,
@@ -605,8 +860,8 @@ private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "MESIN & PERALATAN TERPASANG (${engine.equipmentList.size} UNIT)",
-                fontSize = 11.sp,
+                text = "🫧 MESIN & ALAT TERPASANG (${engine.equipmentList.size} UNIT)",
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = OceanBlueDeep
             )
@@ -619,13 +874,13 @@ private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> 
                         .padding(vertical = 3.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(SkyTintBg.copy(alpha = 0.5f))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text("${eq.type.icon} ${eq.type.displayName}", fontSize = 11.5.sp, fontWeight = FontWeight.Bold, color = Slate800)
                     Text(
-                        text = if (eq.isRunning) "🫧 Aktif (${eq.remainingMinutesInCycle}m)" else "✅ Siap Pakai",
+                        text = if (eq.isRunning) "🫧 Mencuci (${eq.remainingMinutesInCycle}m)" else "✅ Siap Pakai",
                         fontSize = 10.5.sp,
                         color = if (eq.isRunning) OceanBlueDark else MintEmeraldDark,
                         fontWeight = FontWeight.ExtraBold
@@ -637,7 +892,10 @@ private fun TeamAndAssetsTabContent(engine: SimulationEngine, onOpenShop: () -> 
 }
 
 @Composable
-private fun FinanceAndTierTabContent(engine: SimulationEngine) {
+private fun FinanceAndTierTabContent(
+    engine: SimulationEngine,
+    onOpenErpMode: ((String) -> Unit)? = null
+) {
     Card(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         shape = RoundedCornerShape(18.dp),
@@ -646,38 +904,96 @@ private fun FinanceAndTierTabContent(engine: SimulationEngine) {
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "📊 RINGKASAN LABA-RUGI HARI INI",
-                fontSize = 11.sp,
+                text = "🪙 CELENGAN & LABA-RUGI HARI INI",
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = BerryLavenderDark
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            FinanceRow("Pendapatan Masuk", formatMoney(engine.revenueCollectedToday), MintEmeraldDark)
-            FinanceRow("Biaya Operasional", formatMoney(engine.operationalExpensesToday), CoralRose)
+            FinanceRow("➕ Uang Masuk Hari Ini", formatMoney(engine.revenueCollectedToday), MintEmeraldDark)
+            FinanceRow("➖ Biaya Sabun, Listrik & Booster", formatMoney(engine.operationalExpensesToday), CoralRose)
             val netEst = engine.revenueCollectedToday - engine.operationalExpensesToday
-            FinanceRow("Estimasi Laba Bersih", formatMoney(netEst), if (netEst >= 0) MintEmeraldDark else CoralRose, isBold = true)
-            FinanceRow("Saldo Kas Tersedia", formatMoney(engine.cash), SunnyAmberDark, isBold = true)
+            FinanceRow("💰 Untung Bersih Hari Ini", formatMoney(netEst), if (netEst >= 0) MintEmeraldDark else CoralRose, isBold = true)
+            FinanceRow("🏦 Total Uang Kas di Celengan", formatMoney(engine.cash), SunnyAmberDark, isBold = true)
 
             Spacer(modifier = Modifier.height(10.dp))
             HorizontalDivider(color = Slate200)
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "🏆 LEVEL EKSPANSI OUTLET",
-                fontSize = 11.sp,
+                text = "🏆 LEVEL TOKO LAUNDRY KAMU",
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = OceanBlueDeep
             )
             Spacer(modifier = Modifier.height(4.dp))
-            Text(engine.growthTier.title, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
+            Text("${engine.growthTier.title} (Level ${engine.tycoonLevel})", fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Slate900)
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Selesaikan cucian tepat waktu untuk mengumpulkan XP, meningkatkan kapasitas harian, dan membuka mesin industri!",
+                text = "Selesaikan cucian tepat waktu untuk mengumpulkan bintang XP, memperbesar kapasitas toko, dan membuka mesin raksasa!",
                 fontSize = 11.sp,
                 color = Slate600,
                 lineHeight = 16.sp
             )
+
+            if (onOpenErpMode != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider(color = Slate200)
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Text(
+                    text = "📊 FITUR LENGKAP ANALISIS BISNIS (ERP):",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Slate800
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onOpenErpMode("COCKPIT") },
+                        colors = ButtonDefaults.buttonColors(containerColor = MintEmerald),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(36.dp)
+                    ) {
+                        Text("📊 Rapor KPI", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    }
+                    Button(
+                        onClick = { onOpenErpMode("KEUANGAN") },
+                        colors = ButtonDefaults.buttonColors(containerColor = SunnyAmberDark),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(36.dp)
+                    ) {
+                        Text("📈 Hitung BEP", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    }
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = { onOpenErpMode("OPERASI") },
+                        colors = ButtonDefaults.buttonColors(containerColor = OceanBluePrimary),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(36.dp)
+                    ) {
+                        Text("🧺 Antrean Order", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    }
+                    Button(
+                        onClick = { onOpenErpMode("SIMULATOR") },
+                        colors = ButtonDefaults.buttonColors(containerColor = BerryLavender),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.weight(1f).height(36.dp)
+                    ) {
+                        Text("🎛️ Simulator", fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, maxLines = 1)
+                    }
+                }
+            }
         }
     }
 }
